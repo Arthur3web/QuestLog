@@ -120,6 +120,15 @@ def init_db():
             size_bytes INTEGER NOT NULL,
             uploaded_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS subtasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            done INTEGER NOT NULL DEFAULT 0,
+            position INTEGER NOT NULL,
+            created_at TEXT NOT NULL
+        );
         """
     )
     conn.commit()
@@ -155,7 +164,7 @@ def user_dict(row):
     return {"id": row["id"], "name": row["name"], "color": row["color"]}
 
 
-def task_dict(row, comments_count=0, attachments_count=0):
+def task_dict(row, comments_count=0, attachments_count=0, subtasks_total=0, subtasks_done=0):
     return {
         "id": row["id"],
         "board_id": row["board_id"],
@@ -171,6 +180,19 @@ def task_dict(row, comments_count=0, attachments_count=0):
         "updated_at": row["updated_at"],
         "comments_count": comments_count,
         "attachments_count": attachments_count,
+        "subtasks_total": subtasks_total,
+        "subtasks_done": subtasks_done,
+    }
+
+
+def subtask_dict(row):
+    return {
+        "id": row["id"],
+        "task_id": row["task_id"],
+        "title": row["title"],
+        "done": bool(row["done"]),
+        "position": row["position"],
+        "created_at": row["created_at"],
     }
 
 
@@ -271,7 +293,10 @@ def get_state():
             ac = db.execute(
                 "SELECT COUNT(*) c FROM attachments WHERE task_id=?", (t["id"],)
             ).fetchone()["c"]
-            task_list.append(task_dict(t, cc, ac))
+            st = db.execute(
+                "SELECT COUNT(*) total, COALESCE(SUM(done), 0) done FROM subtasks WHERE task_id=?", (t["id"],)
+            ).fetchone()
+            task_list.append(task_dict(t, cc, ac, st["total"], st["done"]))
         result_columns.append(
             {
                 "id": col["id"],
@@ -382,9 +407,14 @@ def get_task(task_id):
     attachments = db.execute(
         "SELECT * FROM attachments WHERE task_id=? ORDER BY id", (task_id,)
     ).fetchall()
-    result = task_dict(row, len(comments), len(attachments))
+    subtasks = db.execute(
+        "SELECT * FROM subtasks WHERE task_id=? ORDER BY position", (task_id,)
+    ).fetchall()
+    done_count = sum(1 for s in subtasks if s["done"])
+    result = task_dict(row, len(comments), len(attachments), len(subtasks), done_count)
     result["comments"] = [comment_dict(c) for c in comments]
     result["attachments"] = [attachment_dict(a) for a in attachments]
+    result["subtasks"] = [subtask_dict(s) for s in subtasks]
     return jsonify(result)
 
 
@@ -554,6 +584,62 @@ def delete_attachment(att_id):
             os.remove(path)
         db.execute("DELETE FROM attachments WHERE id=?", (att_id,))
         db.commit()
+    return jsonify({"ok": True})
+
+
+# ============================================================
+# Subtasks
+# ============================================================
+@app.route("/api/tasks/<int:task_id>/subtasks", methods=["POST"])
+def create_subtask(task_id):
+    data = request.get_json(force=True)
+    title = (data.get("title") or "").strip()
+    if not title:
+        return jsonify({"error": "title обязателен"}), 400
+    db = get_db()
+    task = db.execute("SELECT id FROM tasks WHERE id=?", (task_id,)).fetchone()
+    if not task:
+        abort(404)
+    max_pos = db.execute(
+        "SELECT COALESCE(MAX(position), -1) m FROM subtasks WHERE task_id=?", (task_id,)
+    ).fetchone()["m"]
+    cur = db.execute(
+        "INSERT INTO subtasks (task_id, title, done, position, created_at) VALUES (?,?,0,?,?)",
+        (task_id, title, max_pos + 1, now_iso()),
+    )
+    db.commit()
+    row = db.execute("SELECT * FROM subtasks WHERE id=?", (cur.lastrowid,)).fetchone()
+    return jsonify(subtask_dict(row)), 201
+
+
+@app.route("/api/subtasks/<int:subtask_id>", methods=["PUT"])
+def update_subtask(subtask_id):
+    data = request.get_json(force=True)
+    db = get_db()
+    row = db.execute("SELECT * FROM subtasks WHERE id=?", (subtask_id,)).fetchone()
+    if not row:
+        abort(404)
+    fields = {}
+    if "title" in data:
+        title = (data["title"] or "").strip()
+        if not title:
+            return jsonify({"error": "title не может быть пустым"}), 400
+        fields["title"] = title
+    if "done" in data:
+        fields["done"] = 1 if data["done"] else 0
+    if fields:
+        set_clause = ", ".join(f"{k}=?" for k in fields)
+        db.execute(f"UPDATE subtasks SET {set_clause} WHERE id=?", (*fields.values(), subtask_id))
+        db.commit()
+    row = db.execute("SELECT * FROM subtasks WHERE id=?", (subtask_id,)).fetchone()
+    return jsonify(subtask_dict(row))
+
+
+@app.route("/api/subtasks/<int:subtask_id>", methods=["DELETE"])
+def delete_subtask(subtask_id):
+    db = get_db()
+    db.execute("DELETE FROM subtasks WHERE id=?", (subtask_id,))
+    db.commit()
     return jsonify({"ok": True})
 
 

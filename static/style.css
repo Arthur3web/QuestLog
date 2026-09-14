@@ -778,6 +778,59 @@ body {
 
 .saved-hint { font-size: 11.5px; color: var(--accent); }
 
+.tm-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.tm-section-head h3 { margin: 0; }
+.subtasks-progress { font-size: 11.5px; color: var(--text-faint); }
+
+.subtask-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-sunken);
+  border: var(--border-width) solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.subtask-item input[type="checkbox"] { cursor: pointer; }
+.subtask-item .subtask-title {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  padding: 2px 0;
+}
+.subtask-item .subtask-title:focus { outline: none; border-bottom: 1px solid var(--accent); }
+.subtask-item.done .subtask-title { color: var(--text-faint); text-decoration: line-through; }
+.subtask-item .remove-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.subtask-item .remove-btn:hover { color: var(--danger); }
+
+.subtask-composer {
+  display: flex;
+  gap: 8px;
+}
+.subtask-composer input { flex: 1; }
+
 .btn-primary {
   background: var(--accent);
   color: var(--on-accent);

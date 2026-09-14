@@ -384,6 +384,7 @@ function renderCard(task) {
       <span class="priority-dot ${task.priority}"></span>
       ${dueHtml}
       <span class="spacer"></span>
+      ${task.subtasks_total ? `<span class="mini-meta">☑${task.subtasks_done}/${task.subtasks_total}</span>` : ""}
       ${task.comments_count ? `<span class="mini-meta">💬${task.comments_count}</span>` : ""}
       ${task.attachments_count ? `<span class="mini-meta">📎${task.attachments_count}</span>` : ""}
       ${assigneeHtml}
@@ -498,6 +499,7 @@ async function openTaskModal(taskId, { selectTitle = false } = {}) {
   authorSel.innerHTML = state.users.map(u => `<option value="${u.id}">${escapeHtml(u.name)}</option>`).join("");
   authorSel.value = currentUserId || (state.users[0] && state.users[0].id) || "";
 
+  renderSubtasks(task.subtasks);
   renderAttachments(task.attachments);
   renderComments(task.comments);
 
@@ -537,6 +539,65 @@ function isTaskFormDirty() {
 function updateSaveButtonState() {
   const btn = document.getElementById("tm-save-btn");
   if (btn) btn.disabled = !isTaskFormDirty();
+}
+
+function renderSubtasks(subtasks) {
+  const list = document.getElementById("tm-subtasks");
+  const progress = document.getElementById("tm-subtasks-progress");
+  list.innerHTML = "";
+  const done = subtasks.filter(s => s.done).length;
+  progress.textContent = subtasks.length ? `${done}/${subtasks.length}` : "";
+  if (!subtasks.length) {
+    list.innerHTML = `<span class="hint-text">Подзадач пока нет.</span>`;
+    return;
+  }
+  subtasks.forEach(s => {
+    const row = document.createElement("div");
+    row.className = "subtask-item" + (s.done ? " done" : "");
+    row.innerHTML = `
+      <input type="checkbox" ${s.done ? "checked" : ""}>
+      <input type="text" class="subtask-title" value="${escapeHtml(s.title)}">
+      <button class="remove-btn" title="Удалить">&times;</button>
+    `;
+    const checkbox = row.querySelector('input[type="checkbox"]');
+    const titleInput = row.querySelector(".subtask-title");
+    checkbox.addEventListener("change", async () => {
+      await API.put(`/api/subtasks/${s.id}`, { done: checkbox.checked });
+      const task = await API.get(`/api/tasks/${openTaskId}`);
+      renderSubtasks(task.subtasks);
+      await loadState();
+    });
+    titleInput.addEventListener("blur", async () => {
+      const value = titleInput.value.trim();
+      if (!value) { titleInput.value = s.title; return; }
+      if (value === s.title) return;
+      await API.put(`/api/subtasks/${s.id}`, { title: value });
+      const task = await API.get(`/api/tasks/${openTaskId}`);
+      renderSubtasks(task.subtasks);
+    });
+    titleInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); titleInput.blur(); }
+    });
+    row.querySelector(".remove-btn").addEventListener("click", async () => {
+      await API.del(`/api/subtasks/${s.id}`);
+      const task = await API.get(`/api/tasks/${openTaskId}`);
+      renderSubtasks(task.subtasks);
+      await loadState();
+    });
+    list.appendChild(row);
+  });
+}
+
+async function addSubtaskFromModal() {
+  const input = document.getElementById("tm-subtask-input");
+  const title = input.value.trim();
+  if (!title || !openTaskId) return;
+  await API.post(`/api/tasks/${openTaskId}/subtasks`, { title });
+  input.value = "";
+  const task = await API.get(`/api/tasks/${openTaskId}`);
+  renderSubtasks(task.subtasks);
+  await loadState();
+  input.focus();
 }
 
 function renderAttachments(attachments) {
@@ -745,6 +806,11 @@ function bindGlobalEvents() {
     const task = await API.get(`/api/tasks/${openTaskId}`);
     renderComments(task.comments);
     await loadState();
+  });
+
+  document.getElementById("tm-subtask-add").addEventListener("click", addSubtaskFromModal);
+  document.getElementById("tm-subtask-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); addSubtaskFromModal(); }
   });
 
   document.getElementById("tm-file-input").addEventListener("change", async e => {
