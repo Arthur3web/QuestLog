@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuestLog</title>
+<link rel="stylesheet" href="/static/style.css">
+<script>
+  // Применяем сохранённую тему до отрисовки, чтобы не было мигания темы по умолчанию.
+  (function () {
+    try {
+      document.documentElement.setAttribute("data-theme", "retro");
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="logo-mark">◆</span>
+    <select id="board-select" class="board-select"></select>
+    <button id="new-board-btn" class="icon-btn" title="Новая доска">+ доска</button>
+  </div>
+  <div class="topbar-center">
+    <input id="search-input" type="text" placeholder="Поиск по задачам…  ( / )" class="search-input">
+  </div>
+  <div class="topbar-right">
+    <button id="new-task-btn" class="btn-primary" title="Новая задача (N)">+ Задача</button>
+  </div>
+</header>
+
+<main id="board" class="board"></main>
+
+<footer class="footer-bar">
+  <span class="footer-brand">QuestLog</span>
+  <div class="footer-right">
+    <button id="my-tasks-btn" class="icon-btn" title="Показать только мои задачи (Alt+M)">Мои задачи</button>
+    <label class="identity-field" title="От чьего имени вы работаете — влияет на «Мои задачи» и автора новых комментариев">
+      Я:
+      <select id="current-user-select"></select>
+    </label>
+    <button id="manage-people-btn" class="icon-btn" title="Участники">Участники</button>
+    <select id="theme-select" class="theme-select" title="Тема оформления">
+      <option value="retro">🕹️ Ретро</option>
+    </select>
+  </div>
+</footer>
+
+<!-- Task detail modal -->
+<div id="task-modal" class="modal-overlay hidden">
+  <div class="modal task-modal" role="dialog" aria-modal="true" aria-labelledby="tm-heading">
+    <div class="modal-header">
+      <h3 id="tm-heading">Задача</h3>
+      <button class="modal-close" data-close title="Закрыть">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input id="tm-title" class="tm-title-input" placeholder="Название задачи">
+
+      <div class="tm-meta-grid">
+        <label class="tm-field">
+          <span>Статус</span>
+          <select id="tm-column"></select>
+        </label>
+        <label class="tm-field">
+          <span>Приоритет</span>
+          <select id="tm-priority">
+            <option value="high">🔴 Высокий</option>
+            <option value="medium">🟠 Средний</option>
+            <option value="normal">⚪ Обычный</option>
+            <option value="low">🔵 Низкий</option>
+          </select>
+        </label>
+        <label class="tm-field">
+          <span>Исполнитель</span>
+          <select id="tm-assignee"></select>
+        </label>
+        <label class="tm-field">
+          <span>Срок</span>
+          <input id="tm-due" type="date">
+        </label>
+        <label class="tm-field" style="grid-column: 1 / -1;">
+          <span>Теги</span>
+          <input id="tm-tags" placeholder="через запятую">
+        </label>
+      </div>
+      <div id="tm-tag-presets" class="tag-preset-row"></div>
+
+      <label class="tm-field tm-desc-field">
+        <span>Описание</span>
+        <textarea id="tm-description" rows="4" placeholder="Подробности задачи…"></textarea>
+      </label>
+
+      <section class="tm-section">
+        <h3>Вложения</h3>
+        <div id="tm-attachments" class="attachment-list"></div>
+        <label class="upload-btn">
+          + прикрепить файл
+          <input id="tm-file-input" type="file" hidden>
+        </label>
+      </section>
+
+      <section class="tm-section">
+        <h3>Комментарии</h3>
+        <div id="tm-comments" class="comment-list"></div>
+        <div class="comment-composer">
+          <select id="tm-comment-author"></select>
+          <textarea id="tm-comment-text" rows="2" placeholder="Написать комментарий…"></textarea>
+          <button id="tm-comment-submit" class="btn-primary">Отправить</button>
+        </div>
+      </section>
+    </div>
+    <div class="modal-footer">
+      <button id="tm-delete" class="btn-danger" title="Удалить задачу">🗑 Удалить</button>
+      <div class="footer-actions">
+        <span id="tm-saved-hint" class="saved-hint"></span>
+        <button class="btn-secondary" data-close>Закрыть</button>
+        <button id="tm-save-btn" class="btn-primary">Сохранить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- People management modal -->
+<div id="people-modal" class="modal-overlay hidden">
+  <div class="modal people-modal" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <h3>Участники</h3>
+      <button class="modal-close" data-close title="Закрыть">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="people-list" class="people-list"></div>
+      <div class="add-person-row">
+        <input id="new-person-name" placeholder="Имя нового участника">
+        <button id="add-person-btn" class="btn-primary">Добавить</button>
+      </div>
+      <p class="hint-text">Добавляйте коллег, чтобы назначать им задачи и видеть их комментарии — доска сразу готова к командной работе.</p>
+    </div>
+  </div>
+</div>
+
+<!-- New board modal -->
+<div id="board-modal" class="modal-overlay hidden">
+  <div class="modal small-modal" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <h3>Новая доска</h3>
+      <button class="modal-close" data-close title="Закрыть">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input id="new-board-name" placeholder="Название доски">
+    </div>
+    <div class="modal-footer">
+      <span></span>
+      <div class="footer-actions">
+        <button class="btn-secondary" data-close>Отмена</button>
+        <button id="create-board-btn" class="btn-primary">Создать</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm dialog -->
+<div id="confirm-modal" class="modal-overlay hidden">
+  <div class="modal confirm-modal" role="alertdialog" aria-modal="true">
+    <div class="modal-header">
+      <h3 id="confirm-title">Подтверждение</h3>
+      <button class="modal-close" data-close title="Закрыть">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-text"></p>
+    </div>
+    <div class="modal-footer">
+      <span></span>
+      <div class="footer-actions">
+        <button id="confirm-cancel" class="btn-secondary">Отмена</button>
+        <button id="confirm-ok" class="btn-danger">Удалить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
