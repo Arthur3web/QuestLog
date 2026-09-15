@@ -26,11 +26,33 @@
     <input id="search-input" type="text" placeholder="Поиск по задачам…  ( / )" class="search-input">
   </div>
   <div class="topbar-right">
+    <button id="calendar-toggle-btn" class="icon-btn" title="Календарь">[▦]</button>
     <button id="new-task-btn" class="btn-primary" title="Новая задача (N)">+ Задача</button>
   </div>
 </header>
 
 <main id="board" class="board"></main>
+
+<!-- Sliding calendar panel -->
+<div id="calendar-overlay" class="calendar-overlay hidden"></div>
+<aside id="calendar-panel" class="calendar-panel">
+  <div class="calendar-panel-header">
+    <h3>Календарь</h3>
+    <button id="calendar-close-btn" class="modal-close" title="Скрыть">&times;</button>
+  </div>
+  <div class="calendar-panel-body">
+    <div class="calendar-month-nav">
+      <button id="calendar-prev-month" class="icon-btn" title="Предыдущий месяц">&lsaquo;</button>
+      <span id="calendar-month-label" class="calendar-month-label"></span>
+      <button id="calendar-next-month" class="icon-btn" title="Следующий месяц">&rsaquo;</button>
+    </div>
+    <div id="calendar-grid" class="calendar-grid"></div>
+    <div class="calendar-day-tasks">
+      <h4 id="calendar-day-heading">Задачи на день</h4>
+      <div id="calendar-day-list" class="calendar-day-list"></div>
+    </div>
+  </div>
+</aside>
 
 <footer class="footer-bar">
   <span class="footer-brand">QuestLog</span>
@@ -41,7 +63,8 @@
       <select id="current-user-select"></select>
     </label>
     <button id="manage-people-btn" class="icon-btn" title="Участники">Участники</button>
-    <select id="theme-select" class="theme-select" title="Тема оформления">
+    <!-- Вторая тема ещё не добавлена — селектор заблокирован, чтобы не сбивать тему -->
+    <select id="theme-select" class="theme-select" title="Тема оформления (пока доступна только одна)" disabled>
       <option value="retro">🕹️ Ретро</option>
     </select>
   </div>
@@ -191,8 +214,44 @@
   </div>
 </div>
 
+<!-- Task context menu (ПКМ по карточке) -->
+<div id="task-context-menu" class="context-menu hidden">
+ <button class="context-menu-item" data-action="open">Открыть</button>
+ <div class="context-menu-sep"></div>
+ <label class="context-menu-field">
+    <span class="cm-label">Приоритет</span>
+    <select id="cm-priority">
+      <option value="high">Высокий</option>
+      <option value="medium">Средний</option>
+      <option value="normal">Обычный</option>
+      <option value="low">Низкий</option>
+    </select>
+ </label>
+ <label class="context-menu-field">
+    <span class="cm-label">Исполнитель</span>
+    <select id="cm-assignee"></select>
+ </label>
+ <label class="context-menu-field">
+    <span class="cm-label">Срок</span>
+    <input id="cm-due" type="date">
+ </label>
+ <label class="context-menu-field">
+    <span class="cm-label">Статус</span>
+    <select id="cm-column"></select>
+ </label>
+ <div class="context-menu-sep"></div>
+ <button class="context-menu-item" data-action="subtask">Подзадача</button>
+ <div class="context-menu-subtask hidden" id="cm-subtask-form">
+    <input id="cm-subtask-input" placeholder="Название подзадачи…">
+    <button class="btn-primary" id="cm-subtask-add">Добавить</button>
+ </div>
+ <button class="context-menu-item" data-action="copy">Копировать название</button>
+ <div class="context-menu-sep"></div>
+ <button class="context-menu-item danger" data-action="delete">Удалить задачу</button>
+</div>
+
 <div id="toast" class="toast hidden"></div>
 
-<script src="/static/app.js"></script>
+<script type="module" src="/static/js/main.js"></script>
 </body>
 </html>
