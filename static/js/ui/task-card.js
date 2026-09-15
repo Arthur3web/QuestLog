@@ -9,10 +9,10 @@ import { API } from "../core/api.js";
 import { byId, escapeHtml, initials } from "../core/dom.js";
 import { formatDate, isOverdue } from "../core/format.js";
 import { PRIORITY_LABEL } from "../core/config.js";
-import { state, userById, findTaskById } from "../core/store.js";
+import { state, userById, findTaskById } from "../domain/store.js";
 import { confirmDialog } from "../core/modal.js";
 import { showToast } from "../core/toast.js";
-import { loadState } from "./state-loader.js";
+import { loadState } from "../domain/state-loader.js";
 import { openTaskModal } from "./task-modal.js";
 
 let contextMenuTaskId = null;

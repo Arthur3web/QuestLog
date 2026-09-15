@@ -5,7 +5,7 @@
 
 import { byId, escapeHtml } from "../core/dom.js";
 import { formatDate, toDateKey } from "../core/format.js";
-import { state } from "../core/store.js";
+import { state } from "../domain/store.js";
 import { isModalOpen } from "../core/modal.js";
 import { openTaskModal } from "./task-modal.js";
 

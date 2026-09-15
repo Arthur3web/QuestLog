@@ -7,9 +7,9 @@ import { byId } from "../core/dom.js";
 import {
   boards, currentBoardId,
   setBoards, pushBoard, setCurrentBoardId,
-} from "../core/store.js";
+} from "../domain/store.js";
 import { showModal, hideModal } from "../core/modal.js";
-import { loadState } from "./state-loader.js";
+import { loadState } from "../domain/state-loader.js";
 
 export function renderBoardSelect() {
   const sel = byId("board-select");

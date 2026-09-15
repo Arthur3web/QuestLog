@@ -13,9 +13,9 @@ import {
   currentUserId,
   setState,
   setCurrentUserId,
-} from "../core/store.js";
-import { renderBoard } from "./board.js";
-import { renderIdentitySelect } from "./people.js";
+} from "./store.js";
+import { renderBoard } from "../ui/board.js";
+import { renderIdentitySelect } from "../ui/people.js";
 
 export async function loadState() {
   setState(await API.get(`/api/state?board_id=${currentBoardId}`));

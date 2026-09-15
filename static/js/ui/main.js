@@ -2,32 +2,33 @@
 // Точка входа. Здесь — только загрузка приложения и привязка
 // глобальных обработчиков; вся логика живёт в модулях.
 //
-// core/     — инфраструктура: config, api, dom, format, store, modal, toast
-// features/ — предметная логика:
+// core/     — инфраструктура: config, api, dom, format, modal, toast
+// domain/   — состояние приложения: store, state-loader
+// ui/       — интерфейс:
 //   boards     — выбор/создание досок
 //   board      — рендер колонок и карточек, drag&drop
 //   task-card  — карточка + контекстное меню (ПКМ)
 //   task-modal — модалка задачи (подзадачи, файлы, комментарии)
-//   state-loader — загрузка состояния доски
+//   state-loader — загрузка состояния доски (domain/)
 //   calendar   — панель календаря
 //   people     — участники и «Я:»
 // ==========================================================
 
-import { byId } from "./core/dom.js";
+import { byId } from "../core/dom.js";
 import {
   state, boards, currentBoardId, currentUserId, onlyMine,
   setCurrentUserId, setCurrentBoardId, setSearchQuery, setOnlyMine,
-} from "./core/store.js";
-import { API } from "./core/api.js";
-import { showToast } from "./core/toast.js";
-import { bindModalEscape, isModalOpen } from "./core/modal.js";
-import { fetchBoards, renderBoardSelect, bindBoards } from "./features/boards.js";
-import { renderBoard } from "./features/board.js";
-import { bindContextMenu } from "./features/task-card.js";
-import { loadState } from "./features/state-loader.js";
-import { openTaskModal } from "./features/task-modal.js";
-import { bindCalendar } from "./features/calendar.js";
-import { bindPeople } from "./features/people.js";
+} from "../domain/store.js";
+import { API } from "../core/api.js";
+import { showToast } from "../core/toast.js";
+import { bindModalEscape, isModalOpen } from "../core/modal.js";
+import { fetchBoards, renderBoardSelect, bindBoards } from "./boards.js";
+import { renderBoard } from "./board.js";
+import { bindContextMenu } from "./task-card.js";
+import { loadState } from "../domain/state-loader.js";
+import { openTaskModal, bindTaskModal } from "./task-modal.js";
+import { bindCalendar } from "./calendar.js";
+import { bindPeople } from "./people.js";
 
 async function boot() {
   try {

@@ -15,10 +15,10 @@ import {
   openTaskId, openTaskSnapshot,
   currentUserId, setCurrentUserId,
   setOpenTask, clearOpenTask,
-} from "../core/store.js";
+} from "../domain/store.js";
 import { openOverlay, closeOverlay, confirmDialog } from "../core/modal.js";
 import { showToast } from "../core/toast.js";
-import { loadState } from "./state-loader.js";
+import { loadState } from "../domain/state-loader.js";
 
 // ------------------------------------------------------------
 // Модалка задачи

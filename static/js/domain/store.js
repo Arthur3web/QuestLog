@@ -7,7 +7,7 @@
 // файле, что вообще может поменяться.
 // ==========================================================
 
-import { LS_KEYS } from "./config.js";
+import { LS_KEYS } from "../core/config.js";
 
 export let state = { board_id: null, columns: [], users: [] };
 export let boards = [];

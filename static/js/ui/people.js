@@ -4,9 +4,9 @@
 
 import { API } from "../core/api.js";
 import { byId, escapeHtml, initials } from "../core/dom.js";
-import { state, currentUserId, onlyMine, setCurrentUserId } from "../core/store.js";
+import { state, currentUserId, onlyMine, setCurrentUserId } from "../domain/store.js";
 import { showModal } from "../core/modal.js";
-import { loadState } from "./state-loader.js";
+import { loadState } from "../domain/state-loader.js";
 import { renderBoard } from "./board.js";
 
 export function renderIdentitySelect() {

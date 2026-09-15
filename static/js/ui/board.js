@@ -8,11 +8,11 @@ import { byId, escapeHtml } from "../core/dom.js";
 import {
   state, currentBoardId, searchQuery, onlyMine,
   columnComposeOpen, setColumnComposeOpen, currentUserId,
-} from "../core/store.js";
+} from "../domain/store.js";
 import { confirmDialog } from "../core/modal.js";
 import { showToast } from "../core/toast.js";
 import { renderCard } from "./task-card.js";
-import { loadState } from "./state-loader.js";
+import { loadState } from "../domain/state-loader.js";
 
 export function renderBoard() {
   const board = byId("board");
