@@ -884,6 +884,42 @@ body {
 .tm-section-head h3 { margin: 0; }
 .subtasks-progress { font-size: 11.5px; color: var(--text-faint); }
 
+.subtasks-progress-track {
+  height: 14px;
+  background: var(--surface-sunken);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: 0;
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 10px;
+  --segment-w: calc(100% / var(--subtask-count, 999));
+}
+.subtasks-progress-track.hidden { display: none; }
+.subtasks-progress-track::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent,
+    transparent calc(var(--segment-w) - 1px),
+    var(--border-strong) calc(var(--segment-w) - 1px),
+    transparent var(--segment-w)
+  );
+  z-index: 0;
+}
+.subtasks-progress-fill {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 0.15s;
+}
+.subtasks-progress-track.complete .subtasks-progress-fill {
+  background: var(--done);
+}
+
 .subtask-list {
   display: flex;
   flex-direction: column;

@@ -103,6 +103,9 @@ export function resetTaskModalForm() {
   byId("tm-column").innerHTML = "";
   byId("tm-subtasks").innerHTML = "";
   byId("tm-subtasks-progress").textContent = "";
+  byId("tm-subtasks-progress-track").classList.add("hidden");
+  byId("tm-subtasks-progress-track").classList.remove("complete");
+  byId("tm-subtasks-progress-fill").style.width = "0%";
   byId("tm-attachments").innerHTML = "";
   byId("tm-comments").innerHTML = "";
   byId("tm-heading").textContent = "Задача";
@@ -145,10 +148,23 @@ export function updateSaveButtonState() {
 function renderSubtasks(subtasks) {
   const list = byId("tm-subtasks");
   const progress = byId("tm-subtasks-progress");
+  const progressBar = byId("tm-subtasks-progress-track");
+  const progressFill = byId("tm-subtasks-progress-fill");
   list.innerHTML = "";
   const done = subtasks.filter(s => s.done).length;
-  progress.textContent = subtasks.length ? `${done}/${subtasks.length}` : "";
-  if (!subtasks.length) {
+  const total = subtasks.length;
+  const percent = total ? Math.round((done / total) * 100) : 0;
+  progress.textContent = total ? `${done}/${total}` : "";
+  progressBar.style.setProperty("--subtask-count", total);
+  if (total) {
+    progressBar.classList.remove("hidden");
+    progressFill.style.width = percent + "%";
+    progressBar.classList.toggle("complete", done === total);
+  } else {
+    progressBar.classList.add("hidden");
+    progressBar.classList.remove("complete");
+  }
+  if (!total) {
     list.innerHTML = `<span class="hint-text">Подзадач пока нет.</span>`;
     return;
   }
