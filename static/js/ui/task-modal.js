@@ -21,10 +21,13 @@ import { openOverlay, closeOverlay, confirmDialog } from "../core/modal.js";
 import { showToast } from "../core/toast.js";
 import { loadState } from "../domain/state-loader.js";
 
+let taskSaved = false;
+
 // ------------------------------------------------------------
 // Модалка задачи
 // ------------------------------------------------------------
-export async function openTaskModal(taskId, { selectTitle = false } = {}) {
+export async function openTaskModal(taskId, { selectTitle = false, isNew = false } = {}) {
+  taskSaved = !isNew;
   const task = await API.get(`/api/tasks/${taskId}`);
 
   const titleInput = byId("tm-title");
@@ -63,7 +66,15 @@ export async function openTaskModal(taskId, { selectTitle = false } = {}) {
   renderAttachments(task.attachments);
   renderComments(task.comments);
 
-  const ov = openOverlay("task-modal", () => clearOpenTask());
+  const ov = openOverlay("task-modal", async () => {
+    if (openTaskId && !taskSaved) {
+      try {
+        await API.del(`/api/tasks/${openTaskId}`);
+        await loadState();
+      } catch (e) { /* игнор */ }
+    }
+    clearOpenTask();
+  });
   if (ov && !ov.dataset.boundTitle) {
     // Заголовок модалки повторяет название задачи
     titleInput.addEventListener("input", e => {
@@ -81,6 +92,7 @@ export async function openTaskModal(taskId, { selectTitle = false } = {}) {
 // Модалка при любом закрытии сбрасывается к значениям по умолчанию,
 // чтобы следующий запуск не показывал данные предыдущей задачи.
 export function resetTaskModalForm() {
+  taskSaved = false;
   byId("tm-title").value = "";
   byId("tm-description").value = "";
   byId("tm-priority").value = "normal";
@@ -310,6 +322,7 @@ function toggleTagPreset(tag) {
 // ------------------------------------------------------------
 export async function saveOpenTaskFromModal() {
   if (!openTaskId || !isTaskFormDirty()) return;
+  taskSaved = true;
   const form = currentTaskFormValues();
   await API.put(`/api/tasks/${openTaskId}`, {
     title: form.title,

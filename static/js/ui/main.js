@@ -109,7 +109,7 @@ export async function createAndOpenTask() {
     assignee_id: currentUserId,
   });
   await loadState();
-  await openTaskModal(task.id, { selectTitle: true });
+  await openTaskModal(task.id, { selectTitle: true, isNew: true });
 }
 
 // Обратный вызов для tray-приложения (desktop.py)
