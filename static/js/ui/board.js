@@ -5,6 +5,7 @@
 
 import { API } from "../core/api.js";
 import { byId, escapeHtml } from "../core/dom.js";
+import { ICONS } from "../core/icons.js";
 import {
   state, currentBoardId, searchQuery, onlyMine,
   columnComposeOpen, setColumnComposeOpen, currentUserId,
@@ -53,7 +54,7 @@ function renderColumn(col) {
       <span class="column-count">${col.tasks.length}</span>
     </div>
     <div class="column-actions">
-      <button class="delete-col-btn" title="Удалить колонку">&times;</button>
+      <button class="delete-col-btn" title="Удалить колонку">${ICONS.close}</button>
     </div>
   `;
   const titleEl = header.querySelector(".column-title");

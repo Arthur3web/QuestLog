@@ -15,6 +15,7 @@
 // ==========================================================
 
 import { byId } from "../core/dom.js";
+import { renderIcons } from "../core/icons.js";
 import {
   state, boards, currentBoardId, currentUserId, onlyMine,
   setCurrentUserId, setCurrentBoardId, setSearchQuery, setOnlyMine,
@@ -31,6 +32,7 @@ import { bindCalendar } from "./calendar.js";
 import { bindPeople } from "./people.js";
 
 async function boot() {
+  renderIcons();
   try {
     await fetchBoards();
   } catch (e) {

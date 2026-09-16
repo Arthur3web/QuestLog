@@ -7,6 +7,7 @@
 
 import { API } from "../core/api.js";
 import { byId, escapeHtml, initials } from "../core/dom.js";
+import { ICONS } from "../core/icons.js";
 import { formatDate, isOverdue } from "../core/format.js";
 import { PRIORITY_LABEL } from "../core/config.js";
 import { state, userById, findTaskById } from "../domain/store.js";
@@ -47,9 +48,9 @@ export function renderCard(task) {
       <span class="priority-label">${PRIORITY_LABEL[task.priority] || task.priority}</span>
       ${dueHtml}
       <span class="spacer"></span>
-      ${task.subtasks_total ? `<span class="mini-meta">☑${task.subtasks_done}/${task.subtasks_total}</span>` : ""}
-      ${task.comments_count ? `<span class="mini-meta">💬${task.comments_count}</span>` : ""}
-      ${task.attachments_count ? `<span class="mini-meta">📎${task.attachments_count}</span>` : ""}
+      ${task.subtasks_total ? `<span class="mini-meta">${ICONS.subtasks}<span>${task.subtasks_done}/${task.subtasks_total}</span></span>` : ""}
+      ${task.comments_count ? `<span class="mini-meta">${ICONS.comment}<span>${task.comments_count}</span></span>` : ""}
+      ${task.attachments_count ? `<span class="mini-meta">${ICONS.attachment}<span>${task.attachments_count}</span></span>` : ""}
       ${assigneeHtml}
     </div>
   `;

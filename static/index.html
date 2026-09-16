@@ -18,7 +18,7 @@
 
 <header class="topbar">
   <div class="topbar-left">
-    <span class="logo-mark">◆</span>
+    <span class="logo-mark" data-icon="logo"></span>
     <select id="board-select" class="board-select"></select>
     <button id="new-board-btn" class="icon-btn" title="Новая доска">+ доска</button>
   </div>
@@ -26,7 +26,7 @@
     <input id="search-input" type="text" placeholder="Поиск по задачам…  ( / )" class="search-input">
   </div>
   <div class="topbar-right">
-    <button id="calendar-toggle-btn" class="icon-btn" title="Календарь">[▦]</button>
+    <button id="calendar-toggle-btn" class="icon-btn" title="Календарь"><span data-icon="calendar"></span></button>
     <button id="new-task-btn" class="btn-primary" title="Новая задача (N)">+ Задача</button>
   </div>
 </header>
@@ -38,13 +38,13 @@
 <aside id="calendar-panel" class="calendar-panel">
   <div class="calendar-panel-header">
     <h3>Календарь</h3>
-    <button id="calendar-close-btn" class="modal-close" title="Скрыть">&times;</button>
+    <button id="calendar-close-btn" class="modal-close" title="Скрыть"><span data-icon="close"></span></button>
   </div>
   <div class="calendar-panel-body">
     <div class="calendar-month-nav">
-      <button id="calendar-prev-month" class="icon-btn" title="Предыдущий месяц">&lsaquo;</button>
+      <button id="calendar-prev-month" class="icon-btn" title="Предыдущий месяц"><span data-icon="chevronLeft"></span></button>
       <span id="calendar-month-label" class="calendar-month-label"></span>
-      <button id="calendar-next-month" class="icon-btn" title="Следующий месяц">&rsaquo;</button>
+      <button id="calendar-next-month" class="icon-btn" title="Следующий месяц"><span data-icon="chevronRight"></span></button>
     </div>
     <div id="calendar-grid" class="calendar-grid"></div>
     <div class="calendar-day-tasks">
@@ -65,7 +65,7 @@
     <button id="manage-people-btn" class="icon-btn" title="Участники">Участники</button>
     <!-- Вторая тема ещё не добавлена — селектор заблокирован, чтобы не сбивать тему -->
     <select id="theme-select" class="theme-select" title="Тема оформления (пока доступна только одна)" disabled>
-      <option value="retro">🕹️ Ретро</option>
+      <option value="retro" data-icon-text="theme">Ретро</option>
     </select>
   </div>
 </footer>
@@ -75,7 +75,7 @@
   <div class="modal task-modal" role="dialog" aria-modal="true" aria-labelledby="tm-heading">
     <div class="modal-header">
       <h3 id="tm-heading">Задача</h3>
-      <button class="modal-close" data-close title="Закрыть">&times;</button>
+      <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>
     </div>
     <div class="modal-body">
       <input id="tm-title" class="tm-title-input" placeholder="Название задачи">
@@ -88,10 +88,10 @@
         <label class="tm-field">
           <span>Приоритет</span>
           <select id="tm-priority">
-            <option value="high">🔴 Высокий</option>
-            <option value="medium">🟠 Средний</option>
-            <option value="normal">⚪ Обычный</option>
-            <option value="low">🔵 Низкий</option>
+            <option value="high" data-icon-text="priorityHigh">Высокий</option>
+            <option value="medium" data-icon-text="priorityMedium">Средний</option>
+            <option value="normal" data-icon-text="priorityNormal">Обычный</option>
+            <option value="low" data-icon-text="priorityLow">Низкий</option>
           </select>
         </label>
         <label class="tm-field">
@@ -146,7 +146,7 @@
       </section>
     </div>
     <div class="modal-footer">
-      <button id="tm-delete" class="btn-danger" title="Удалить задачу">🗑 Удалить</button>
+      <button id="tm-delete" class="btn-danger" title="Удалить задачу"><span data-icon="trash"></span> Удалить</button>
       <div class="footer-actions">
         <span id="tm-saved-hint" class="saved-hint"></span>
         <button class="btn-secondary" data-close>Закрыть</button>
@@ -161,7 +161,7 @@
   <div class="modal people-modal" role="dialog" aria-modal="true">
     <div class="modal-header">
       <h3>Участники</h3>
-      <button class="modal-close" data-close title="Закрыть">&times;</button>
+      <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>
     </div>
     <div class="modal-body">
       <div id="people-list" class="people-list"></div>
@@ -179,7 +179,7 @@
   <div class="modal small-modal" role="dialog" aria-modal="true">
     <div class="modal-header">
       <h3>Новая доска</h3>
-      <button class="modal-close" data-close title="Закрыть">&times;</button>
+      <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>
     </div>
     <div class="modal-body">
       <input id="new-board-name" placeholder="Название доски">
@@ -199,7 +199,7 @@
   <div class="modal confirm-modal" role="alertdialog" aria-modal="true">
     <div class="modal-header">
       <h3 id="confirm-title">Подтверждение</h3>
-      <button class="modal-close" data-close title="Закрыть">&times;</button>
+      <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>
     </div>
     <div class="modal-body">
       <p id="confirm-text"></p>

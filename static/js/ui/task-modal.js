@@ -8,6 +8,7 @@
 
 import { API } from "../core/api.js";
 import { byId, escapeHtml } from "../core/dom.js";
+import { ICONS } from "../core/icons.js";
 import { formatSize, formatDateTime } from "../core/format.js";
 import { TAG_PRESETS } from "../core/config.js";
 import {
@@ -145,7 +146,7 @@ function renderSubtasks(subtasks) {
     row.innerHTML = `
       <input type="checkbox" ${s.done ? "checked" : ""}>
       <input type="text" class="subtask-title" value="${escapeHtml(s.title)}">
-      <button class="remove-btn" title="Удалить">&times;</button>
+      <button class="remove-btn" title="Удалить">${ICONS.close}</button>
     `;
     const checkbox = row.querySelector('input[type="checkbox"]');
     const titleInput = row.querySelector(".subtask-title");
@@ -210,7 +211,7 @@ function renderAttachments(attachments) {
     row.innerHTML = `
       <a href="/api/attachments/${a.id}/download">${escapeHtml(a.filename)}</a>
       <span class="size">${formatSize(a.size_bytes)}</span>
-      <button class="remove-btn" title="Удалить">&times;</button>
+      <button class="remove-btn" title="Удалить">${ICONS.close}</button>
     `;
     row.querySelector(".remove-btn").onclick = async () => {
       await API.del(`/api/attachments/${a.id}`);
@@ -251,7 +252,7 @@ function renderComments(comments) {
       <div class="comment-head">
         <span class="author">${author ? escapeHtml(author.name) : "Удалённый участник"}</span>
         <span>${formatDateTime(c.created_at)}</span>
-        <button class="remove-btn" title="Удалить">&times;</button>
+        <button class="remove-btn" title="Удалить">${ICONS.close}</button>
       </div>
       <div class="comment-body">${escapeHtml(c.text)}</div>
     `;

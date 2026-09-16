@@ -4,6 +4,7 @@
 
 import { API } from "../core/api.js";
 import { byId, escapeHtml, initials } from "../core/dom.js";
+import { ICONS } from "../core/icons.js";
 import { state, currentUserId, onlyMine, setCurrentUserId } from "../domain/store.js";
 import { showModal } from "../core/modal.js";
 import { loadState } from "../domain/state-loader.js";
@@ -24,7 +25,7 @@ function renderPeopleList() {
     row.innerHTML = `
       <div class="avatar" style="background:${u.color}">${initials(u.name)}</div>
       <span class="name">${escapeHtml(u.name)}</span>
-      <button class="remove-btn" title="Удалить">&times;</button>
+      <button class="remove-btn" title="Удалить">${ICONS.close}</button>
     `;
     row.querySelector(".remove-btn").addEventListener("click", async () => {
       const res = await API.del(`/api/users/${u.id}`);

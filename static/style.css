@@ -490,6 +490,22 @@ body {
 
 .card-footer .spacer { flex: 1; }
 
+.icon {
+  display: inline-flex;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  vertical-align: -0.15em;
+}
+.logo-mark .icon { width: 17px; height: 17px; }
+.icon-btn .icon { width: 14px; height: 14px; }
+.modal-close .icon,
+.delete-col-btn .icon,
+.remove-btn .icon { width: 14px; height: 14px; }
+.calendar-month-nav .icon { width: 15px; height: 15px; }
+.mini-meta .icon { width: 12px; height: 12px; }
+.btn-danger .icon { width: 14px; height: 14px; margin-right: 5px; }
+
 .mini-meta { display: flex; align-items: center; gap: 3px; }
 
 /* ============================================================
@@ -806,7 +822,33 @@ body {
   padding: 6px 10px;
   font-size: 13px;
 }
-.subtask-item input[type="checkbox"] { cursor: pointer; }
+.subtask-item input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: 0;
+  background: var(--surface);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.subtask-item input[type="checkbox"]:hover {
+  border-color: var(--accent);
+  background: var(--surface-raised);
+}
+.subtask-item input[type="checkbox"]:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow), 1px 1px 0 rgba(0, 0, 0, 0.25);
+}
+.subtask-item input[type="checkbox"]:checked {
+  border-color: var(--border-strong);
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'%3E%3Cpath d='M1 4.5 3.5 7 9 1' fill='none' stroke='%23F2EFDD' stroke-width='2'/%3E%3C/svg%3E") center / 9px 7px no-repeat;
+}
 .subtask-item .subtask-title {
   flex: 1;
   border: none;
