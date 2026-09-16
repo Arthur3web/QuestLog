@@ -739,9 +739,26 @@ body {
   padding: 7px 10px;
   font-size: 12.5px;
 }
-.attachment-item a { color: var(--accent); text-decoration: none; font-weight: 500; }
+.attachment-item a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 .attachment-item a:hover { color: var(--accent-bright); text-decoration: underline; }
-.attachment-item .size { color: var(--text-faint); }
+.attachment-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.attachment-item .size { color: var(--text-faint); flex-shrink: 0; }
+.attachment-item .preview-btn,
+.attachment-item .remove-btn { flex-shrink: 0; }
 .attachment-item .remove-btn,
 .comment-item .remove-btn,
 .person-row .remove-btn {
@@ -757,6 +774,67 @@ body {
 .attachment-item .remove-btn:hover,
 .comment-item .remove-btn:hover,
 .person-row .remove-btn:hover { color: var(--danger); }
+.attachment-item .remove-btn { margin-left: 0; }
+
+.preview-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: 4px;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.preview-btn:hover { color: var(--accent); }
+.preview-btn .icon { width: 14px; height: 14px; }
+
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: modal-in 0.18s ease-out;
+}
+.lightbox-overlay.hidden { display: none; }
+.lightbox-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+.lightbox-content img {
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+.lightbox-close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-sunken);
+  border: var(--border-width) solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.lightbox-close:hover {
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+.lightbox-close .icon { width: 14px; height: 14px; }
 
 .upload-btn {
   display: inline-block;

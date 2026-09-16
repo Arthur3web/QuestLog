@@ -210,6 +210,10 @@ export async function addSubtaskFromModal() {
 // ------------------------------------------------------------
 // Вложения
 // ------------------------------------------------------------
+function isImageFile(filename) {
+  return /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(filename);
+}
+
 function renderAttachments(attachments) {
   const list = byId("tm-attachments");
   list.innerHTML = "";
@@ -218,13 +222,32 @@ function renderAttachments(attachments) {
     return;
   }
   attachments.forEach(a => {
+    const downloadUrl = `/api/attachments/${a.id}/download`;
     const row = document.createElement("div");
     row.className = "attachment-item";
+    const isImage = isImageFile(a.filename);
+    const linkTitle = isImage ? "Открыть превью" : "Скачать";
     row.innerHTML = `
-      <a href="/api/attachments/${a.id}/download">${escapeHtml(a.filename)}</a>
-      <span class="size">${formatSize(a.size_bytes)}</span>
-      <button class="remove-btn" title="Удалить">${ICONS.close}</button>
+      <a href="${downloadUrl}" title="${linkTitle}">${escapeHtml(a.filename)}</a>
+      <div class="attachment-meta">
+        <span class="size">${formatSize(a.size_bytes)}</span>
+        <button type="button" class="remove-btn" title="Удалить">${ICONS.close}</button>
+      </div>
     `;
+    const link = row.querySelector("a");
+    if (isImage) {
+      link.addEventListener("click", e => {
+        e.preventDefault();
+        const img = byId("lightbox-image");
+        img.src = downloadUrl;
+        byId("attachment-lightbox").classList.remove("hidden");
+      });
+    } else {
+      link.addEventListener("click", e => {
+        e.preventDefault();
+        window.open(downloadUrl, "_blank");
+      });
+    }
     row.querySelector(".remove-btn").onclick = async () => {
       await API.del(`/api/attachments/${a.id}`);
       const task = await API.get(`/api/tasks/${openTaskId}`);
@@ -387,4 +410,25 @@ export function bindTaskModal() {
   byId("tm-file-input").addEventListener("change", e => {
     uploadAttachmentFromModal(e.target.files[0], e.target);
   });
+
+  // Превью вложений — лайтбокс
+  byId("lightbox-close").innerHTML = ICONS.close;
+  byId("lightbox-close").addEventListener("click", () => {
+    closeLightbox();
+  });
+  byId("attachment-lightbox").addEventListener("click", e => {
+    if (e.target === byId("attachment-lightbox")) {
+      closeLightbox();
+    }
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !byId("attachment-lightbox").classList.contains("hidden")) {
+      closeLightbox();
+    }
+  });
+}
+
+function closeLightbox() {
+  byId("attachment-lightbox").classList.add("hidden");
+  byId("lightbox-image").src = "";
 }
