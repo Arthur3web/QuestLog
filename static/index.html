@@ -78,7 +78,7 @@
       <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>
     </div>
     <div class="modal-body">
-      <input id="tm-title" class="tm-title-input" placeholder="Название задачи">
+      <input id="tm-title" class="tm-title-input" placeholder="Название задачи" autocomplete="off">
 
       <div class="tm-meta-grid">
         <label class="tm-field">
@@ -100,11 +100,11 @@
         </label>
         <label class="tm-field">
           <span>Срок</span>
-          <input id="tm-due" type="date">
+          <input id="tm-due" type="date" autocomplete="off">
         </label>
         <label class="tm-field" style="grid-column: 1 / -1;">
           <span>Теги</span>
-          <input id="tm-tags" placeholder="через запятую">
+          <input id="tm-tags" placeholder="через запятую" autocomplete="off">
         </label>
       </div>
       <div id="tm-tag-presets" class="tag-preset-row"></div>
@@ -121,7 +121,7 @@
         </div>
         <div id="tm-subtasks" class="subtask-list"></div>
         <div class="subtask-composer">
-          <input id="tm-subtask-input" placeholder="Новая подзадача…">
+          <input id="tm-subtask-input" placeholder="Новая подзадача…" autocomplete="off">
           <button id="tm-subtask-add" class="btn-secondary">+ добавить</button>
         </div>
       </section>
@@ -140,7 +140,7 @@
         <div id="tm-comments" class="comment-list"></div>
         <div class="comment-composer">
           <select id="tm-comment-author"></select>
-          <textarea id="tm-comment-text" rows="2" placeholder="Написать комментарий…"></textarea>
+          <textarea id="tm-comment-text" rows="2" placeholder="Написать комментарий…" autocomplete="off"></textarea>
           <button id="tm-comment-submit" class="btn-primary">Отправить</button>
         </div>
       </section>
@@ -166,7 +166,7 @@
     <div class="modal-body">
       <div id="people-list" class="people-list"></div>
       <div class="add-person-row">
-        <input id="new-person-name" placeholder="Имя нового участника">
+        <input id="new-person-name" placeholder="Имя нового участника" autocomplete="off">
         <button id="add-person-btn" class="btn-primary">Добавить</button>
       </div>
       <p class="hint-text">Добавляйте коллег, чтобы назначать им задачи и видеть их комментарии — доска сразу готова к командной работе.</p>
@@ -182,7 +182,7 @@
       <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>
     </div>
     <div class="modal-body">
-      <input id="new-board-name" placeholder="Название доски">
+      <input id="new-board-name" placeholder="Название доски" autocomplete="off">
     </div>
     <div class="modal-footer">
       <span></span>
@@ -242,7 +242,7 @@
  <div class="context-menu-sep"></div>
  <button class="context-menu-item" data-action="subtask">Подзадача</button>
  <div class="context-menu-subtask hidden" id="cm-subtask-form">
-    <input id="cm-subtask-input" placeholder="Название подзадачи…">
+    <input id="cm-subtask-input" placeholder="Название подзадачи…" autocomplete="off">
     <button class="btn-primary" id="cm-subtask-add">Добавить</button>
  </div>
  <button class="context-menu-item" data-action="copy">Копировать название</button>
