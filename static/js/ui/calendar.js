@@ -4,7 +4,7 @@
 // ==========================================================
 
 import { byId, escapeHtml } from "../core/dom.js";
-import { formatDate, toDateKey } from "../core/format.js";
+import { formatDate, toDateKey, isOverdue, isDueSoon, daysUntil } from "../core/format.js";
 import { state } from "../domain/store.js";
 import { isModalOpen } from "../core/modal.js";
 import { openTaskModal } from "./task-modal.js";
@@ -13,11 +13,17 @@ let calendarOpen = false;
 let calendarViewDate = new Date(); // отображаемый месяц
 let calendarSelectedDate = toDateKey(new Date()); // выбранный день
 
+// id колонок, считающихся завершёнными (Done/Cancelled — is_done_state)
+function doneColumnIds() {
+  return new Set(state.columns.filter((c) => c.is_done_state).map((c) => c.id));
+}
+
 function allTasksWithDueDate() {
+  const doneCols = doneColumnIds();
   const tasks = [];
   state.columns.forEach((col) =>
     col.tasks.forEach((t) => {
-      if (t.due_date) tasks.push(t);
+      if (t.due_date) tasks.push({ ...t, isDone: doneCols.has(t.column_id) });
     }),
   );
   return tasks;
@@ -81,9 +87,27 @@ function render() {
     if (key === calendarSelectedDate) cell.classList.add("selected");
     cell.textContent = d.getDate();
     if (tasksByDay[key] && tasksByDay[key].length) {
-      const dot = document.createElement("span");
-      dot.className = "day-dot";
-      cell.appendChild(dot);
+      const tasks = tasksByDay[key];
+      const active = tasks.filter((t) => !t.isDone);
+      const doneCount = tasks.length - active.length;
+      // Горящий день: срок сегодня/завтра и есть незавершённые задачи
+      if (active.length && isDueSoon(key, 1)) cell.classList.add("due-soon-day");
+      // Просроченный день: дата в прошлом и есть незавершённые задачи
+      if (active.length && isOverdue(key)) cell.classList.add("overdue-day");
+      // Точки: зелёные — завершённые, обычные — активные
+      const dots = document.createElement("span");
+      dots.className = "day-dots";
+      for (let i = 0; i < Math.min(doneCount, 3); i++) {
+        const dotEl = document.createElement("span");
+        dotEl.className = "day-dot done";
+        dots.appendChild(dotEl);
+      }
+      for (let i = 0; i < Math.min(active.length, 3); i++) {
+        const dotEl = document.createElement("span");
+        dotEl.className = "day-dot";
+        dots.appendChild(dotEl);
+      }
+      cell.appendChild(dots);
     }
     cell.addEventListener("click", () => {
       calendarSelectedDate = key;
@@ -94,28 +118,67 @@ function render() {
 
   const dayTasks = (tasksByDay[calendarSelectedDate] || [])
     .slice()
-    .sort((a, b) => a.priority.localeCompare(b.priority));
+    // сначала активные, из них — просроченные; завершённые в конец
+    .sort((a, b) => {
+      if (a.isDone !== b.isDone) return a.isDone ? 1 : -1;
+      const aOver = !a.isDone && isOverdue(a.due_date) ? 1 : 0;
+      const bOver = !b.isDone && isOverdue(b.due_date) ? 1 : 0;
+      if (aOver !== bOver) return bOver - aOver;
+      return a.priority.localeCompare(b.priority);
+    });
+
+  // Просроченные активные задачи — отдельным блоком под задачами дня:
+  // пока не закрыты, они «переезжают» из прошлых дней в каждый следующий.
+  const dayIds = new Set(dayTasks.map((t) => t.id));
+  const carriedOver = allTasksWithDueDate().filter(
+    (t) =>
+      !t.isDone &&
+      isOverdue(t.due_date) &&
+      t.due_date < calendarSelectedDate &&
+      !dayIds.has(t.id),
+  );
   byId("calendar-day-heading").textContent =
     `Задачи на ${formatDate(calendarSelectedDate)}`;
 
   const dayList = byId("calendar-day-list");
   dayList.innerHTML = "";
-  if (!dayTasks.length) {
+  if (!dayTasks.length && !carriedOver.length) {
     dayList.innerHTML = `<span class="hint-text">На этот день задач нет.</span>`;
   } else {
-    dayTasks.forEach((t) => {
+    const appendRow = (t, { carried = false } = {}) => {
       const row = document.createElement("div");
-      row.className = "calendar-day-item";
+      row.className = "calendar-day-item" + (t.isDone ? " done" : "");
+      const overdue = !t.isDone && isOverdue(t.due_date);
+      const dueSoon = !t.isDone && isDueSoon(t.due_date, 1);
+      // В основном списке — бейдж «просрочена»; в блоке перенесённых он
+      // избыточен (заголовок уже говорит об этом), там показываем на сколько дней.
+      const lateDays = overdue ? -daysUntil(t.due_date) : 0;
+      const badge = carried
+        ? `<span class="due-badge">${lateDays} дн.</span>`
+        : overdue
+          ? '<span class="due-badge">просрочена</span>'
+          : dueSoon
+            ? '<span class="due-badge soon">горит</span>'
+            : "";
       row.innerHTML = `
-        <span class="priority-dot ${t.priority}"></span>
+        <span class="priority-dot ${t.priority}${overdue ? " overdue" : ""}"></span>
         <span class="title">${escapeHtml(t.title)}</span>
+        ${badge}
       `;
       row.addEventListener("click", () => {
         close();
         openTaskModal(t.id);
       });
       dayList.appendChild(row);
-    });
+    };
+    dayTasks.forEach(appendRow);
+    if (carriedOver.length) {
+      const head = document.createElement("div");
+      head.className = "calendar-overdue-heading";
+      head.textContent = `Просроченные из прошлых дней (${carriedOver.length})`;
+      dayList.appendChild(head);
+      carriedOver.forEach((t) => appendRow(t, { carried: true }));
+    }
   }
 }
 

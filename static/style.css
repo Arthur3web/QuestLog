@@ -39,6 +39,7 @@
 
   --danger: #9E3A2A;
   --danger-wash: rgba(158, 58, 42, 0.16);
+  --warning: #B4832A;
 
   --priority-high: #9E3A2A;
   --priority-medium: #B4832A;
@@ -487,6 +488,7 @@ body {
 
 .card-due { font-size: 11px; }
 .card-due.overdue { color: var(--danger); font-weight: 600; }
+.card-due.due-soon { color: var(--warning, #E8590C); font-weight: 600; }
 
 .card-footer .spacer { flex: 1; }
 
@@ -882,43 +884,22 @@ body {
   margin-bottom: 10px;
 }
 .tm-section-head h3 { margin: 0; }
-.subtasks-progress { font-size: 11.5px; color: var(--text-faint); }
-
-.subtasks-progress-track {
-  height: 14px;
-  background: var(--surface-sunken);
-  border: var(--border-width) solid var(--border-strong);
-  border-radius: 0;
-  overflow: hidden;
-  position: relative;
-  margin-bottom: 10px;
-  --segment-w: calc(100% / var(--subtask-count, 999));
+/* Прогресс подзадач: текстовый глифовый бар в ретро-стиле — [▓▓░░░] 2/5 */
+.subtasks-progress {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-.subtasks-progress-track.hidden { display: none; }
-.subtasks-progress-track::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: repeating-linear-gradient(
-    to right,
-    transparent,
-    transparent calc(var(--segment-w) - 1px),
-    var(--border-strong) calc(var(--segment-w) - 1px),
-    transparent var(--segment-w)
-  );
-  z-index: 0;
-}
-.subtasks-progress-fill {
-  position: relative;
-  z-index: 1;
-  height: 100%;
-  width: 0%;
-  background: var(--accent);
-  transition: width 0.15s;
-}
-.subtasks-progress-track.complete .subtasks-progress-fill {
-  background: var(--done);
-}
+.subtasks-progress .bar { letter-spacing: 1px; color: var(--accent); font-size: 12.5px; }
+/* Скобки чуть крупнее и жирнее глифов, чтобы бар читался как единая «колодка» */
+.subtasks-progress .bar .b { font-weight: 700; }
+/* Цвет по уровню выполнения */
+.subtasks-progress .bar.low { color: var(--danger); }
+.subtasks-progress .bar.mid { color: var(--warning); }
+.subtasks-progress .bar.complete { color: var(--done); }
 
 .subtask-list {
   display: flex;
@@ -1176,15 +1157,27 @@ body {
 .calendar-day.other-month { opacity: 0.35; }
 .calendar-day.today { border-color: var(--accent-bright); font-weight: 700; }
 .calendar-day.selected { background: var(--accent); color: var(--on-accent); }
-.calendar-day .day-dot {
+.calendar-day .day-dots {
   position: absolute;
   bottom: 3px;
+  display: flex;
+  gap: 2px;
+}
+.calendar-day .day-dot {
   width: 4px;
   height: 4px;
   border-radius: 0;
   background: var(--violet);
 }
+.calendar-day .day-dot.done { background: var(--done); }
 .calendar-day.selected .day-dot { background: var(--on-accent); }
+.calendar-day.selected .day-dot.done { background: var(--on-accent); opacity: 0.6; }
+
+/* Горящий день: срок сегодня/завтра и есть активные задачи */
+.calendar-day.due-soon-day { border-color: var(--warning, #E8590C); }
+/* Просроченный день: дата в прошлом и есть активные задачи */
+.calendar-day.overdue-day { border-color: var(--danger); }
+.calendar-day.overdue-day:not(:hover) { color: var(--danger); }
 
 .calendar-day-tasks {
   border-top: var(--border-width) solid var(--border-soft);
@@ -1216,7 +1209,25 @@ body {
 .calendar-day-item:hover { border-color: var(--accent); }
 .calendar-day-item .priority-dot { flex-shrink: 0; }
 .calendar-day-item .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.calendar-day-item .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Завершённые задачи в списке дня приглушаем и зачёркиваем */
+.calendar-day-item.done { opacity: 0.55; }
+.calendar-day-item.done .title { text-decoration: line-through; }
+/* Пометки «просрочена» / «горит» */
+.due-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--danger);
+}
+.due-badge.soon { color: var(--warning, #E8590C); }
+.calendar-day-item .priority-dot.overdue { box-shadow: 0 0 0 2px var(--danger); }
+
+.calendar-overdue-heading {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--danger);
+}
 
 /* ============================================================
    Task context menu (ПКМ по карточке)

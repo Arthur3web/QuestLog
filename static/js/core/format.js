@@ -31,7 +31,33 @@ export function toDateKey(d) {
   return `${y}-${m}-${day}`;
 }
 
+// Разбираем ключ YYYY-MM-DD в локальном времени: new Date('YYYY-MM-DD')
+// парсится как UTC и в части часовых поясов сдвигает дату на день.
+function parseDateKey(key) {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+// Начало сегодняшнего дня
+function startOfToday() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+export function daysUntil(dateKey) {
+  if (!dateKey) return null;
+  const today = startOfToday();
+  return Math.round((parseDateKey(dateKey) - today) / 86400000);
+}
+
 // Срок просрочен, если он раньше начала сегодняшнего дня
-export function isOverdue(iso) {
-  return new Date(iso) < new Date(new Date().toDateString());
+export function isOverdue(dateKey) {
+  const diff = daysUntil(dateKey);
+  return diff !== null && diff < 0;
+}
+
+// Срок сегодня или в ближайшие N дней (по умолчанию — до завтра включительно)
+export function isDueSoon(dateKey, withinDays = 1) {
+  const diff = daysUntil(dateKey);
+  return diff !== null && diff >= 0 && diff <= withinDays;
 }

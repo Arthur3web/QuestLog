@@ -8,7 +8,7 @@
 import { API } from "../core/api.js";
 import { byId, escapeHtml, initials } from "../core/dom.js";
 import { ICONS } from "../core/icons.js";
-import { formatDate, isOverdue } from "../core/format.js";
+import { formatDate, isOverdue, isDueSoon } from "../core/format.js";
 import { PRIORITY_LABEL } from "../core/config.js";
 import { state, userById, findTaskById } from "../domain/store.js";
 import { confirmDialog } from "../core/modal.js";
@@ -36,8 +36,20 @@ export function renderCard(task) {
     ? `<div class="avatar" style="width:18px;height:18px;font-size:9px;background:${assignee.color}" title="${escapeHtml(assignee.name)}">${initials(assignee.name)}</div>`
     : "";
 
+  // Срок: просрочен — красный, сегодня/завтра — жёлтый, иначе нейтральный.
+  // Для завершённых задач (колонка is_done_state) срок больше не подсвечивается:
+  // закрытая вовремя задача — не просроченная.
+  const doneCols = new Set(state.columns.filter((c) => c.is_done_state).map((c) => c.id));
+  const taskDone = doneCols.has(task.column_id);
+  const dueClass = task.due_date && !taskDone
+    ? isOverdue(task.due_date)
+      ? "overdue"
+      : isDueSoon(task.due_date)
+        ? "due-soon"
+        : ""
+    : null;
   const dueHtml = task.due_date
-    ? `<span class="card-due ${isOverdue(task.due_date) ? "overdue" : ""}">${formatDate(task.due_date)}</span>`
+    ? `<span class="card-due ${dueClass}">${formatDate(task.due_date)}</span>`
     : "";
 
   card.innerHTML = `
