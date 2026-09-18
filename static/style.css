@@ -1107,7 +1107,6 @@ body {
 
 .calendar-panel-body {
   padding: 16px 18px;
-  overflow-y: auto;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1182,17 +1181,26 @@ body {
 .calendar-day-tasks {
   border-top: var(--border-width) solid var(--border-soft);
   padding-top: 12px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .calendar-day-tasks h4 {
   margin: 0 0 10px;
   font-family: var(--font-display);
   font-size: 13px;
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 .calendar-day-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding-right: 6px;
 }
 .calendar-day-item {
   display: flex;
