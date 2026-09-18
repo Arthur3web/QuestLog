@@ -9,7 +9,7 @@
 import { API } from "../core/api.js";
 import { byId, escapeHtml } from "../core/dom.js";
 import { ICONS } from "../core/icons.js";
-import { formatSize, formatDateTime } from "../core/format.js";
+import { formatSize, formatDateTime, formatDuration } from "../core/format.js";
 import { TAG_PRESETS } from "../core/config.js";
 import {
   state, userById,
@@ -65,8 +65,10 @@ export async function openTaskModal(taskId, { selectTitle = false, isNew = false
   renderSubtasks(task.subtasks);
   renderAttachments(task.attachments);
   renderComments(task.comments);
+  renderTimeTracking(task);
 
   const ov = openOverlay("task-modal", async () => {
+    clearTimerTicker();
     if (openTaskId && !taskSaved) {
       try {
         await API.del(`/api/tasks/${openTaskId}`);
@@ -105,6 +107,11 @@ export function resetTaskModalForm() {
   byId("tm-subtasks-progress").textContent = "";
   byId("tm-attachments").innerHTML = "";
   byId("tm-comments").innerHTML = "";
+  byId("tm-time-total").textContent = "";
+  byId("tm-time-log").innerHTML = "";
+  byId("tm-timer-display").textContent = "0с";
+  byId("tm-timer-toggle").textContent = "▶ Старт";
+  byId("tm-timer-toggle").classList.remove("timer-active");
   byId("tm-heading").textContent = "Задача";
   byId("tm-saved-hint").textContent = "";
   renderTagPresets([]);
@@ -325,6 +332,102 @@ export async function submitCommentFromModal() {
 }
 
 // ------------------------------------------------------------
+// Время: старт/стоп таймер и лог затраченного времени
+// ------------------------------------------------------------
+let timerTicker = null;
+
+function clearTimerTicker() {
+  if (timerTicker) { clearInterval(timerTicker);
+  timerTicker = null;
+  }
+}
+
+// Секунды, прошедшие с момента старта активной(незакрытой) записи
+function activeElapsedSeconds(task) {
+  const active = (task.time_entries || []).find(e => !e.stopped_at);
+  if (!active) return 0;
+  return Math.max(0, Math.floor((Date.now() - new Date(active.started_at).getTime()) / 1000));
+}
+
+function renderTimeTracking(task) {
+  const entries = task.time_entries || [];
+  const totalSeconds = task.time_spent_seconds || 0;
+  const runningBool = !!task.timer_running;
+
+  byId("tm-time-total").textContent = totalSeconds > 0 || runningBool
+    ? `Итого: ${formatDuration(totalSeconds)}` : "";
+
+  const toggle = byId("tm-timer-toggle");
+  toggle.textContent = runningBool ? "■ Стоп" : "▶ Старт";
+  toggle.classList.toggle("timer-active", runningBool);
+
+  const display = byId("tm-timer-display");
+  display.classList.toggle("live", runningBool);
+  clearTimerTicker();
+  if (runningBool) {
+    const tick = () => {
+      display.textContent = formatDuration(totalSeconds + activeElapsedSeconds(task));
+    };
+    tick();
+    timerTicker = setInterval(tick, 1000);
+  } else {
+    display.textContent = formatDuration(totalSeconds);
+  }
+
+  const note = byId("tm-timer-note");
+  note.textContent = runningBool ? "идёт учёт времени — не забудьте остановить" : "";
+
+  const list = byId("tm-time-log");
+  list.innerHTML = "";
+  if (!entries.length) {
+    list.innerHTML = `<span class="hint-text">Записей времени пока нет. Запустите таймер, чтобы начать учёт.</span>`;
+    return;
+  }
+  entries.forEach(e => {
+    const author = userById(e.user_id);
+    const row = document.createElement("div");
+    row.className = "time-entry-item" + (e.stopped_at ? "" : " running");
+    const when = e.stopped_at
+      ? `${formatDateTime(e.started_at)} — ${formatDateTime(e.stopped_at)}`
+      : `старт ${formatDateTime(e.started_at)}`;
+    row.innerHTML = `
+      <div class="time-entry-head">
+        <span class="time-author">${author ? escapeHtml(author.name) : "Удалённый участник"}</span>
+        <span class="time-range">${escapeHtml(when)}</span>
+        <span class="time-duration">${e.stopped_at ? formatDuration(e.duration_seconds) : "идёт…"}</span>
+        <button class="remove-btn" title="Удалить запись">${ICONS.close}</button>
+      </div>
+    `;
+    row.querySelector(".remove-btn").addEventListener("click", async () => {
+      const ok = await confirmDialog("Удалить эту запись времени?", { title: "Удалить запись" });
+      if (!ok) return;
+      await API.del(`/api/time-entries/${e.id}`);
+      const fresh = await API.get(`/api/tasks/${openTaskId}`);
+      renderTimeTracking(fresh);
+      await loadState();
+    });
+    list.appendChild(row);
+  });
+}
+
+async function toggleTimerFromModal() {
+  if (!openTaskId) return;
+  const task = await API.get(`/api/tasks/${openTaskId}`);
+  if (task.timer_running) {
+
+    await API.post(`/api/tasks/${openTaskId}/timer/stop`, {});
+  } else {
+    const userId = currentUserId || (state.users[0] && state.users[0].id);
+    if (!userId) { showToast("Сначала выберите участника («Я:»)"); return; }
+    setCurrentUserId(userId);
+    await API.post(`/api/tasks/${openTaskId}/timer/start`, { user_id: userId });
+  }
+  const fresh = await API.get(`/api/tasks/${openTaskId}`);
+  renderTimeTracking(fresh);
+  await loadState();
+}
+
+// ------------------------------------------------------------
 // Теги-пресеты
 // ------------------------------------------------------------
 export function renderTagPresets(activeTags) {
@@ -417,6 +520,9 @@ export function bindTaskModal() {
   // Комментарии
   byId("tm-comment-submit").addEventListener("click", submitCommentFromModal);
 
+  // Таймер
+  byId("tm-timer-toggle").addEventListener("click", toggleTimerFromModal);
+
   // Вложения
   byId("tm-file-input").addEventListener("change", e => {
     uploadAttachmentFromModal(e.target.files[0], e.target);
@@ -437,9 +543,4 @@ export function bindTaskModal() {
       closeLightbox();
     }
   });
-}
-
-function closeLightbox() {
-  byId("attachment-lightbox").classList.add("hidden");
-  byId("lightbox-image").src = "";
 }

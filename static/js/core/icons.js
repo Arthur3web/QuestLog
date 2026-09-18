@@ -10,6 +10,7 @@ export const ICONS = {
   attachment: `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m20.5 11.5-8.7 8.7a5.2 5.2 0 0 1-7.4-7.4l8.3-8.3a3.7 3.7 0 0 1 5.2 5.2l-8.1 8.1a2.1 2.1 0 0 1-3-3l7.2-7.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/></svg>`,
   eye: `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>`,
   download: `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/></svg>`,
+  timer: `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9v4l3 2M9 2h6M12 2v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/></svg>`,
 };
 
 export const ICON_TEXT = {

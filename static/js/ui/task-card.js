@@ -8,7 +8,7 @@
 import { API } from "../core/api.js";
 import { byId, escapeHtml, initials } from "../core/dom.js";
 import { ICONS } from "../core/icons.js";
-import { formatDate, isOverdue, isDueSoon } from "../core/format.js";
+import { formatDate, isOverdue, isDueSoon, formatDuration, formatDurationShort } from "../core/format.js";
 import { PRIORITY_LABEL } from "../core/config.js";
 import { state, userById, findTaskById } from "../domain/store.js";
 import { confirmDialog } from "../core/modal.js";
@@ -52,6 +52,11 @@ export function renderCard(task) {
     ? `<span class="card-due ${dueClass}">${formatDate(task.due_date)}</span>`
     : "";
 
+  // Время: показываем на карточке, если есть учтённое время или идёт таймер
+  const timeMeta = task.time_spent_seconds > 0 || task.timer_running
+    ? `<span class="mini-meta${task.timer_running ? " timer-running" : ""}" title="${escapeHtml(task.timer_running ? "Идёт таймер" : `Затрачено: ${formatDuration(task.time_spent_seconds)}`)}">${ICONS.timer}<span>${formatDurationShort(task.time_spent_seconds)}</span></span>`
+    : "";
+
   card.innerHTML = `
     <div class="card-title">${escapeHtml(task.title)}</div>
     ${tagsHtml}
@@ -63,6 +68,7 @@ export function renderCard(task) {
       ${task.subtasks_total ? `<span class="mini-meta">${ICONS.subtasks}<span>${task.subtasks_done}/${task.subtasks_total}</span></span>` : ""}
       ${task.comments_count ? `<span class="mini-meta">${ICONS.comment}<span>${task.comments_count}</span></span>` : ""}
       ${task.attachments_count ? `<span class="mini-meta">${ICONS.attachment}<span>${task.attachments_count}</span></span>` : ""}
+      ${timeMeta}
       ${assigneeHtml}
     </div>
   `;

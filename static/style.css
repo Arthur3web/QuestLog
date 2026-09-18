@@ -1328,3 +1328,121 @@ body {
 }
 .context-menu-subtask input:focus { outline: none; border-color: var(--accent); }
 .context-menu-subtask .btn-primary { padding: 5px 10px; font-size: 11.5px; }
+/* ============================================================
+   Time tracking (тайм-трекинг)
+   ============================================================ */
+.timer-bar {
+  display: flex;
+  align-items: center;
+  gap:  10px;
+  margin-bottom: 10px;
+}
+.timer-toggle-btn {
+  min-width: 110px;
+}
+.timer-toggle-btn.timer-active {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+.timer-toggle-btn.timer-active:hover {
+  background: var(--danger-wash);
+  color: var(--danger);
+}
+.timer-display {
+  font-size:15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.timer-display.live {
+  color: var(--accent-bright);
+  animation: timer-pulse 1.2s ease-in-out infinite;
+}
+.timer-note { font-size:11.5px; color: var(--text-faint); }
+.time-total { font-size:11.5px; color: var(--text-faint); }
+.time-log {
+  display: flex;
+  flex-direction: column;
+  gap:6px;
+}
+.time-entry-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-sunken);
+  border: var(--border-width) solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.time-entry-item.running { border-color: var(--accent); background: var(--accent-glow); }
+.time-entry-item .time-author { font-weight: 600; color: var(--text); }
+.time-entry-item .time-range { color: var(--text-muted); font-size: 11.5px; white-space: nowrap; }
+.time-entry-item .time-duration {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.time-entry-item .remove-btn {
+  margin-left: 10px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: 4px;
+  padding: 2px;
+  transition: color 0.15s, background 0.15s;
+}
+.time-entry-item .remove-btn:hover { color: var(--danger); background: var(--danger-wash); }
+@media (max-width: 520px) {
+  .time-entry-item { flex-wrap: wrap; }
+  .time-entry-item .time-duration { margin-left: auto; }
+  .time-entry-item .remove-btn { margin-left: 8px; }
+}
+
+/* Time entry description */
+.time-entry-desc {
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  background: var(--surface-deep);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.time-entry-desc:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+.time-entry-desc .placeholder {
+  color: var(--text-faint);
+  font-style: italic;
+}
+.time-desc-input {
+  width: 100%;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--text);
+  background: var(--surface);
+  border: var(--border-width) solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* Карточка: пульсация пока идёт таймер */
+.mini-meta.timer-running { color: var(--accent-bright); }
+.mini-meta.timer-running { animation: timer-pulse 1.2s ease-in-out infinite; }
+@keyframes timer-pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

@@ -23,6 +23,30 @@ export function formatSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
 }
 
+// ------------------------------------------------------------
+// Длительности (тайм-трекинг)
+// Полный формат: «1ч 2м 3с» / «2м 3с» / «3с»
+// ------------------------------------------------------------
+export function formatDuration(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h) return `${h}ч ${m}м ${sec}с`;
+  if (m) return `${m}м ${sec}с`;
+  return `${sec}с`;
+}
+
+// Короткая версия для карточек: «1ч 2м» / «2м» / «3с»
+export function formatDurationShort(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h) return m ? `${h}ч ${m}м` : `${h}ч`;
+  if (m) return `${m}м`;
+  return `${s}с`;
+}
+
 // Ключ даты в виде YYYY-MM-DD (совпадает с форматом input[type=date])
 export function toDateKey(d) {
   const y = d.getFullYear();

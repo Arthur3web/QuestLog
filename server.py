@@ -129,6 +129,17 @@ def init_db():
             position INTEGER NOT NULL,
             created_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS time_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            description TEXT NOT NULL DEFAULT '',
+            started_at TEXT NOT NULL,
+            stopped_at TEXT,
+            duration_seconds INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        );
         """
     )
     conn.commit()
@@ -164,7 +175,7 @@ def user_dict(row):
     return {"id": row["id"], "name": row["name"], "color": row["color"]}
 
 
-def task_dict(row, comments_count=0, attachments_count=0, subtasks_total=0, subtasks_done=0):
+def task_dict(row, comments_count=0, attachments_count=0, subtasks_total=0, subtasks_done=0, time_spent_seconds=0, timer_running=False):
     return {
         "id": row["id"],
         "board_id": row["board_id"],
@@ -182,6 +193,8 @@ def task_dict(row, comments_count=0, attachments_count=0, subtasks_total=0, subt
         "attachments_count": attachments_count,
         "subtasks_total": subtasks_total,
         "subtasks_done": subtasks_done,
+        "time_spent_seconds": time_spent_seconds,
+        "timer_running": timer_running,
     }
 
 
@@ -213,6 +226,19 @@ def attachment_dict(row):
         "filename": row["filename"],
         "size_bytes": row["size_bytes"],
         "uploaded_at": row["uploaded_at"],
+    }
+
+
+def time_entry_dict(row):
+    return {
+        "id": row["id"],
+        "task_id": row["task_id"],
+        "user_id": row["user_id"],
+        "description": row["description"],
+        "started_at": row["started_at"],
+        "stopped_at": row["stopped_at"],
+        "duration_seconds": row["duration_seconds"],
+        "created_at": row["created_at"],
     }
 
 
@@ -281,6 +307,17 @@ def get_state():
     ).fetchall()
 
     result_columns = []
+    # Агрегаты времени для карточек: сумма длительностей всех записей
+    # и флаг «таймер запущен» (есть незакрытая запись).
+    time_stats = {}
+    for r in db.execute(
+        """SELECT task_id,
+                  COALESCE(SUM(duration_seconds), 0) AS total,
+                  MAX(CASE WHEN stopped_at IS NULL THEN 1 ELSE 0 END) AS running
+           FROM time_entries GROUP BY task_id"""
+    ).fetchall():
+        time_stats[r["task_id"]] = (r["total"], bool(r["running"]))
+
     for col in columns:
         tasks = db.execute(
             "SELECT * FROM tasks WHERE column_id=? ORDER BY position", (col["id"],)
@@ -296,7 +333,8 @@ def get_state():
             st = db.execute(
                 "SELECT COUNT(*) total, COALESCE(SUM(done), 0) done FROM subtasks WHERE task_id=?", (t["id"],)
             ).fetchone()
-            task_list.append(task_dict(t, cc, ac, st["total"], st["done"]))
+            tspent, trun = time_stats.get(t["id"], (0, False))
+            task_list.append(task_dict(t, cc, ac, st["total"], st["done"], tspent, trun))
         result_columns.append(
             {
                 "id": col["id"],
@@ -410,11 +448,17 @@ def get_task(task_id):
     subtasks = db.execute(
         "SELECT * FROM subtasks WHERE task_id=? ORDER BY position", (task_id,)
     ).fetchall()
+    time_entries = db.execute(
+        "SELECT * FROM time_entries WHERE task_id=? ORDER BY id", (task_id,)
+    ).fetchall()
     done_count = sum(1 for s in subtasks if s["done"])
-    result = task_dict(row, len(comments), len(attachments), len(subtasks), done_count)
+    time_total = sum(e["duration_seconds"] for e in time_entries)
+    time_running = any(e["stopped_at"] is None for e in time_entries)
+    result = task_dict(row, len(comments), len(attachments), len(subtasks), done_count, time_total, time_running)
     result["comments"] = [comment_dict(c) for c in comments]
     result["attachments"] = [attachment_dict(a) for a in attachments]
     result["subtasks"] = [subtask_dict(s) for s in subtasks]
+    result["time_entries"] = [time_entry_dict(e) for e in time_entries]
     return jsonify(result)
 
 
@@ -641,6 +685,107 @@ def delete_subtask(subtask_id):
     db.execute("DELETE FROM subtasks WHERE id=?", (subtask_id,))
     db.commit()
     return jsonify({"ok": True})
+
+
+# ============================================================
+# Time tracking (тайм-трекинг на задачах)
+# ============================================================
+def _elapsed_seconds(started_at_iso, end=None):
+    started = datetime.datetime.fromisoformat(started_at_iso)
+    end = datetime.datetime.now() if end is None else end
+    return max(0, int((end - started).total_seconds()))
+
+
+@app.route("/api/tasks/<int:task_id>/timer/start", methods=["POST"])
+def start_timer(task_id):
+    """Запустить таймер на задаче. У каждого участника может быть
+    только один активный таймер — чужие автоматически останавливаются."""
+    data = request.get_json(force=True)
+    user_id = data.get("user_id")
+    db = get_db()
+    task = db.execute("SELECT id FROM tasks WHERE id=?", (task_id,)).fetchone()
+    if not task:
+        abort(404)
+
+    now = now_iso()
+    # Останавливаем другие запущенные таймеры этого пользователя
+    running = db.execute(
+        "SELECT id, started_at FROM time_entries WHERE user_id IS ? AND stopped_at IS NULL",
+        (user_id,),
+    ).fetchall()
+    for r in running:
+        db.execute(
+            "UPDATE time_entries SET stopped_at=?, duration_seconds=? WHERE id=?",
+            (now, _elapsed_seconds(r["started_at"]), r["id"]),
+        )
+
+    cur = db.execute(
+        """INSERT INTO time_entries (task_id, user_id, description, started_at, stopped_at, duration_seconds, created_at)
+           VALUES (?,?,?,?,NULL,0,?)""",
+        (task_id, user_id, "", now, now),
+    )
+    db.commit()
+    row = db.execute("SELECT * FROM time_entries WHERE id=?", (cur.lastrowid,)).fetchone()
+    return jsonify(time_entry_dict(row)), 201
+
+
+@app.route("/api/tasks/<int:task_id>/timer/stop", methods=["POST"])
+def stop_timer(task_id):
+    """Остановить активный таймер задачи и зафиксировать длительность."""
+    db = get_db()
+    row = db.execute(
+        "SELECT id FROM time_entries WHERE task_id=? AND stopped_at IS NULL ORDER BY id LIMIT 1",
+        (task_id,),
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "На задаче нет запущенного таймера"}), 404
+
+    now = datetime.datetime.now()
+    entry = db.execute("SELECT * FROM time_entries WHERE id=?", (row["id"],)).fetchone()
+    duration = _elapsed_seconds(entry["started_at"], now)
+    db.execute(
+        "UPDATE time_entries SET stopped_at=?, duration_seconds=? WHERE id=?",
+        (now.isoformat(timespec="seconds"), duration, row["id"]),
+    )
+    db.commit()
+    entry = db.execute("SELECT * FROM time_entries WHERE id=?", (row["id"],)).fetchone()
+    return jsonify(time_entry_dict(entry))
+
+
+@app.route("/api/time-entries/<int:entry_id>", methods=["DELETE"])
+def delete_time_entry(entry_id):
+    db = get_db()
+    db.execute("DELETE FROM time_entries WHERE id=?", (entry_id,))
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/time-entries/<int:entry_id>", methods=["PUT"])
+def update_time_entry(entry_id):
+    """Ручное редактирование записи времени (длительность, описание, даты)."""
+    data = request.get_json(force=True)
+    db = get_db()
+    row = db.execute("SELECT * FROM time_entries WHERE id=?", (entry_id,)).fetchone()
+    if not row:
+        abort(404)
+
+    fields = {}
+    if "description" in data:
+        fields["description"] = data["description"] or ""
+    if "duration_seconds" in data:
+        fields["duration_seconds"] = max(0, int(data["duration_seconds"]))
+    if "started_at" in data and data["started_at"]:
+        fields["started_at"] = data["started_at"]
+    if "stopped_at" in data:
+        fields["stopped_at"] = data["stopped_at"] or None
+
+    if fields:
+        set_clause = ", ".join(f"{k}=?" for k in fields)
+        db.execute(f"UPDATE time_entries SET {set_clause} WHERE id=?", (*fields.values(), entry_id))
+        db.commit()
+
+    row = db.execute("SELECT * FROM time_entries WHERE id=?", (entry_id,)).fetchone()
+    return jsonify(time_entry_dict(row))
 
 
 # ============================================================
