@@ -1,21 +1,20 @@
 // ==========================================================
 // Карточка задачи на доске + контекстное меню (ПКМ).
 //
-// Карточка и меню живут вместе: у них общий набор действий над
-// задачей, и правый клик — это просто второй способ вызвать их.
+// Здесь только представление: как карточка и меню выглядят и
+// какие элементы в них есть. Что происходит при выборе пункта —
+// в context-menu-actions.js. Разделение не косметическое: раньше
+// файл был один, и ошибка в одном действии валила весь граф
+// модулей, оставляя пустую доску.
 // ==========================================================
 
-import { API } from "../core/api.js";
 import { byId, escapeHtml, initials } from "../core/dom.js";
 import { ICONS } from "../core/icons.js";
 import { formatDate, isOverdue, isDueSoon, formatDuration, formatDurationShort } from "../core/format.js";
 import { PRIORITY_LABEL } from "../core/config.js";
 import { state, userById, findTaskById } from "../domain/store.js";
-import { confirmDialog } from "../core/modal.js";
-import { showToast } from "../core/toast.js";
-import { loadState } from "../domain/state-loader.js";
 import { openTaskModal } from "./task-modal.js";
-import { openBulkMoveForTask } from "./bulk-move.js";
+import * as actions from "./context-menu-actions.js";
 
 let contextMenuTaskId = null;
 
@@ -134,64 +133,10 @@ export function closeContextMenu() {
   contextMenuTaskId = null;
 }
 
-async function patchTask(fields) {
-  if (!contextMenuTaskId) return;
-  await API.put(`/api/tasks/${contextMenuTaskId}`, fields);
-  await loadState();
-}
-
-async function moveTaskToColumn(columnId) {
-  if (!contextMenuTaskId) return;
-  await API.post(`/api/tasks/${contextMenuTaskId}/move`, {
-    column_id: columnId,
-    position: 9999,
-  });
-  closeContextMenu();
-  await loadState();
-}
-
-async function addSubtaskFromMenu() {
-  const input = byId("cm-subtask-input");
-  const title = input.value.trim();
-  if (!title || !contextMenuTaskId) return;
-  await API.post(`/api/tasks/${contextMenuTaskId}/subtasks`, { title });
-  input.value = "";
-  await loadState();
-  closeContextMenu();
-}
-
-async function copyTaskTitle() {
-  const task = findTaskById(contextMenuTaskId);
-  if (!task) return;
-  try {
-    await navigator.clipboard.writeText(task.title);
-    showToast("Название скопирован");
-  } catch (e) {
-    showToast("Не удалось скопировать");
-  }
-  closeContextMenu();
-}
-
-async function moveTaskToBoard() {
-  if (!contextMenuTaskId) return;
-  closeContextMenu();
-  openBulkMoveForTask(contextMenuTaskId);
-}
-  closeContextMenu();
-}
-
-async function deleteTaskFromMenu() {
-  const id = contextMenuTaskId;
-  const task = findTaskById(id);
-  if (!id || !task) return;
-  closeContextMenu();
-  const ok = await confirmDialog(
-    `Удалить задачу «${task.title}» без возможности восстановления?`,
-    { title: "Удалить задачу" },
-  );
-  if (!ok) return;
-  await API.del(`/api/tasks/${id}`);
-  await loadState();
+// id задачи нужно прочитать ДО закрытия меню — closeContextMenu() обнуляет
+// contextMenuTaskId, и переданное после этого значение уже потеряно.
+function currentId() {
+  return contextMenuTaskId;
 }
 
 // ------------------------------------------------------------
@@ -221,22 +166,27 @@ export function bindContextMenu() {
 
   // Селекты применяются сразу при изменении значения
   byId("cm-priority").addEventListener("change", async (e) => {
-    await patchTask({ priority: e.target.value });
+    const id = currentId();
     closeContextMenu();
+    await actions.patchTask(id, { priority: e.target.value });
   });
   byId("cm-assignee").addEventListener("change", async (e) => {
-    await patchTask({
+    const id = currentId();
+    closeContextMenu();
+    await actions.patchTask(id, {
       assignee_id: e.target.value ? Number(e.target.value) : null,
     });
-    closeContextMenu();
   });
   byId("cm-due").addEventListener("change", async (e) => {
-    await patchTask({ due_date: e.target.value || "" });
+    const id = currentId();
     closeContextMenu();
+    await actions.patchTask(id, { due_date: e.target.value || "" });
   });
-  byId("cm-column").addEventListener("change", (e) =>
-    moveTaskToColumn(Number(e.target.value)),
-  );
+  byId("cm-column").addEventListener("change", async (e) => {
+    const id = currentId();
+    closeContextMenu();
+    await actions.moveTaskToColumn(id, Number(e.target.value));
+  });
 
   // «Подзадача» раскрывает инлайн-поле ввода
   document
@@ -245,28 +195,45 @@ export function bindContextMenu() {
       byId("cm-subtask-form").classList.remove("hidden");
       byId("cm-subtask-input").focus();
     });
-  byId("cm-subtask-add").addEventListener("click", addSubtaskFromMenu);
+  const subtaskHandler = async () => {
+    const id = currentId();
+    await actions.addSubtaskFromMenu(id);
+    closeContextMenu();
+  };
+  byId("cm-subtask-add").addEventListener("click", subtaskHandler);
   byId("cm-subtask-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      addSubtaskFromMenu();
+      subtaskHandler();
     }
   });
 
   document
     .querySelector('#task-context-menu [data-action="open"]')
     .addEventListener("click", () => {
-      const id = contextMenuTaskId;
+      const id = currentId();
       closeContextMenu();
-      if (id) openTaskModal(id);
+      actions.openTaskFromMenu(id);
     });
   document
     .querySelector('#task-context-menu [data-action="copy"]')
-    .addEventListener("click", copyTaskTitle);
+    .addEventListener("click", async () => {
+      const id = currentId();
+      closeContextMenu();
+      await actions.copyTaskTitle(id);
+    });
   document
     .querySelector('#task-context-menu [data-action="move-board"]')
-    .addEventListener("click", moveTaskToBoard);
+    .addEventListener("click", () => {
+      const id = currentId();
+      closeContextMenu();
+      actions.moveTaskToBoard(id);
+    });
   document
     .querySelector('#task-context-menu [data-action="delete"]')
-    .addEventListener("click", deleteTaskFromMenu);
+    .addEventListener("click", async () => {
+      const id = currentId();
+      closeContextMenu();
+      await actions.deleteTaskFromMenu(id);
+    });
 }

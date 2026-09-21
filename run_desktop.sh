@@ -10,5 +10,9 @@ fi
 
 source .venv/bin/activate
 pip install -q -r requirements.txt
+# Ставит pre-commit хук с проверкой синтаксиса JS — без ручной команды.
+if [ -d ".git" ] && [ -f "scripts/pre-commit" ]; then
+    python check_js.py --install-hooks
+fi
 
 exec python3 desktop.py "$@"

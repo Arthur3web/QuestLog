@@ -17,6 +17,44 @@ export function formatDateTime(iso) {
   });
 }
 
+// Только время: «10:45»
+export function formatTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+
+// Только дата: «21.09»
+export function formatDayMonth(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+}
+
+// Один и тот же календарный день у начала и конца записи?
+function sameDay(aIso, bIso) {
+  const a = new Date(aIso);
+  const b = new Date(bIso);
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+// ------------------------------------------------------------
+// Интервал записи времени.
+//
+// Внутри одного дня дата не дублируется: «21.09, 10:45 — 12:50»
+// вместо «21.09, 10:45 — 21.09, 12:50». Незакрытая запись —
+// «21.09, 10:45 — идёт».
+// ------------------------------------------------------------
+export function formatTimeRange(startedIso, stoppedIso) {
+  if (!stoppedIso) return `${formatDayMonth(startedIso)}, ${formatTime(startedIso)} — идёт`;
+  if (sameDay(startedIso, stoppedIso)) {
+    return `${formatDayMonth(startedIso)}, ${formatTime(startedIso)} — ${formatTime(stoppedIso)}`;
+  }
+  return `${formatDateTime(startedIso)} — ${formatDateTime(stoppedIso)}`;
+}
+
 export function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} Б`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
@@ -25,23 +63,37 @@ export function formatSize(bytes) {
 
 // ------------------------------------------------------------
 // Длительности (тайм-трекинг)
-// Полный формат: «1ч 2м 3с» / «2м 3с» / «3с»
+//
+// Нулевые единицы отбрасываются: «2ч 5м» вместо «2ч 5м 0с», а не
+// «27ч 0м 0с» — иначе длительность сливается с временем окончания
+// в списке записей и читается как часть даты.
+// Свыше суток — с днями: «1д 3ч» понятнее, чем «27ч».
+// Полный формат: «1д 3ч 2м 5с» / «1ч 2м 3с» / «2м 3с» / «3с»
 // ------------------------------------------------------------
 export function formatDuration(totalSeconds) {
   const s = Math.max(0, Math.floor(totalSeconds || 0));
-  const h = Math.floor(s / 3600);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
-  if (h) return `${h}ч ${m}м ${sec}с`;
-  if (m) return `${m}м ${sec}с`;
-  return `${sec}с`;
+
+  const parts = [];
+  if (d) parts.push(`${d}д`);
+  if (h) parts.push(`${h}ч`);
+  if (m) parts.push(`${m}м`);
+  // Секунды показываем всегда, если не показано ничего другого:
+  // «0с» на записи без длительности честнее пустоты.
+  if (sec || !parts.length) parts.push(`${sec}с`);
+  return parts.join(" ");
 }
 
-// Короткая версия для карточек: «1ч 2м» / «2м» / «3с»
+// Короткая версия для карточек: «1д 3ч» / «1ч 2м» / «2м» / «3с»
 export function formatDurationShort(totalSeconds) {
   const s = Math.max(0, Math.floor(totalSeconds || 0));
-  const h = Math.floor(s / 3600);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
+  if (d) return h ? `${d}д ${h}ч` : `${d}д`;
   if (h) return m ? `${h}ч ${m}м` : `${h}ч`;
   if (m) return `${m}м`;
   return `${s}с`;

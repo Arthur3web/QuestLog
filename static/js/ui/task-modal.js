@@ -7,9 +7,9 @@
 // ==========================================================
 
 import { API } from "../core/api.js";
-import { byId, escapeHtml } from "../core/dom.js";
+import { byId, escapeHtml, initials } from "../core/dom.js";
 import { ICONS } from "../core/icons.js";
-import { formatSize, formatDateTime, formatDuration } from "../core/format.js";
+import { formatSize, formatDateTime, formatDuration, formatTimeRange } from "../core/format.js";
 import { TAG_PRESETS } from "../core/config.js";
 import {
   state, userById,
@@ -387,13 +387,17 @@ function renderTimeTracking(task) {
     const author = userById(e.user_id);
     const row = document.createElement("div");
     row.className = "time-entry-item" + (e.stopped_at ? "" : " running");
-    const when = e.stopped_at
-      ? `${formatDateTime(e.started_at)} — ${formatDateTime(e.stopped_at)}`
-      : `старт ${formatDateTime(e.started_at)}`;
+    const authorName = author ? author.name : "Удалённый участник";
+    // Инициалы и цвет — те же, что в карточках доски: строка перестаёт
+    // быть безликой, когда записей несколько.
+    const avatar = author
+      ? `<span class="avatar time-avatar" style="background:${author.color}" title="${escapeHtml(authorName)}">${escapeHtml(initials(authorName))}</span>`
+      : `<span class="avatar time-avatar" style="background:#666">?</span>`;
     row.innerHTML = `
       <div class="time-entry-head">
-        <span class="time-author">${author ? escapeHtml(author.name) : "Удалённый участник"}</span>
-        <span class="time-range">${escapeHtml(when)}</span>
+        ${avatar}
+        <span class="time-author">${escapeHtml(authorName)}</span>
+        <span class="time-range">${escapeHtml(formatTimeRange(e.started_at, e.stopped_at))}</span>
         <span class="time-duration">${e.stopped_at ? formatDuration(e.duration_seconds) : "идёт…"}</span>
         <button class="remove-btn" title="Удалить запись">${ICONS.close}</button>
       </div>

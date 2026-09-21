@@ -289,7 +289,20 @@ def create_board():
         )
     db.commit()
     return jsonify({"id": board_id, "name": name}), 201
-
+@app.route("/api/boards/<int:board_id>", methods=["PUT"])
+def rename_board(board_id):
+    """Переименование доски."""
+    data = request.get_json(force=True)
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Название доски обязательно"}), 400
+    db = get_db()
+    board = db.execute("SELECT id FROM boards WHERE id=?", (board_id,)).fetchone()
+    if not board:
+        return jsonify({"error": "Доска не найдена"}), 404
+    db.execute("UPDATE boards SET name=? WHERE id=?", (name, board_id))
+    db.commit()
+    return jsonify({"id": board_id, "name": name})
 
 # ============================================================
 # Full board state (columns + tasks + users) in one call

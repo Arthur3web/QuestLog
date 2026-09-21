@@ -1,0 +1,54 @@
+#!/bin/sh
+# ============================================================
+# pre-commit: не даём закоммитить сломанный JavaScript.
+#
+# Зачем: опечатка в одном модуле (лишняя скобка, незакрытая
+# шаблонная строка) валит весь граф зависимостей фронтенда,
+# а страница при этом открывается пустой без ошибок в консоли.
+# Проверка занимает доли секунды и отсекает такой коммит.
+#
+# Установка:
+#   cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+#
+# Обойти в крайнем случае:  git commit --no-verify
+# ============================================================
+
+# Запускаем только если среди изменений есть JS или сам скрипт проверки.
+changed=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(js|mjs)$|^check_js\.py$')
+if [ -z "$changed" ]; then
+  exit 0
+fi
+
+# Ищем Python. git-хук запускается через sh из Git for Windows, и в нём
+# PATH может не содержать ни python, ни launcher py, поэтому помимо PATH
+# проверяем стандартные места установки (в т.ч. Windows-лаунчер py.exe).
+find_python() {
+  for cand in python3 python py; do
+    if command -v "$cand" >/dev/null 2>&1; then
+      echo "$cand"
+      return 0
+    fi
+  done
+  for cand in \
+    "/c/Windows/py.exe" \
+    "$LOCALAPPDATA/Programs/Python/Python312/python.exe" \
+    "$LOCALAPPDATA/Programs/Python/Python311/python.exe" \
+    "$LOCALAPPDATA/Programs/Python/Python310/python.exe" \
+    /c/Python3*/python.exe
+  do
+    if [ -x "$cand" ]; then
+      echo "$cand"
+      return 0
+    fi
+  done
+  return 1
+}
+
+PY=$(find_python)
+
+if [ -z "$PY" ]; then
+  echo "pre-commit: Python не найден — проверка JS пропущена."
+  exit 0
+fi
+
+exec "$PY" check_js.py

@@ -63,6 +63,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM Keeps the pre-commit JS syntax check installed without a manual copy.
+if exist ".git" if exist "scripts\pre-commit" "%VENV_PY%" check_js.py --install-hooks
+
 echo Starting QuestLog at http://127.0.0.1:8420
 start "" http://127.0.0.1:8420
 "%VENV_PY%" server.py

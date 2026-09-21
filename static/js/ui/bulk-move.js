@@ -4,6 +4,7 @@ import { showModal, hideModal } from "../core/modal.js";
 import { showToast } from "../core/toast.js";
 import { TAG_PRESETS } from "../core/config.js";
 import { boards, currentBoardId } from "../domain/store.js";
+import { loadState } from "../domain/state-loader.js";
 
 let currentBulkTaskId = null;
 
@@ -129,7 +130,9 @@ async function executeBulkMove() {
     }
     currentBulkTaskId = null;
     hideModal("bulk-move-modal");
-    if (window.TaskBoard && window.TaskBoard.refresh) window.TaskBoard.refresh();
+    // Обязательно перечитываем состояние с сервера: перенесённые задачи
+    // уехали на другую доску и должны исчезнуть с текущей.
+    await loadState();
   } catch (e) {
     showToast("Ошибка при переносе задач");
   }

@@ -23,7 +23,7 @@ import {
 import { API } from "../core/api.js";
 import { showToast } from "../core/toast.js";
 import { bindModalEscape, isModalOpen } from "../core/modal.js";
-import { fetchBoards, renderBoardSelect, bindBoards } from "./boards.js";
+import { fetchBoards, renderBoardTitle, bindBoards } from "./boards.js";
 import { renderBoard } from "./board.js";
 import { bindContextMenu } from "./task-card.js";
 import { loadState } from "../domain/state-loader.js";
@@ -45,10 +45,26 @@ async function boot() {
   if (!currentBoardId || !boards.find(b => b.id === currentBoardId)) {
     setCurrentBoardId(boards[0].id);
   }
-  renderBoardSelect();
+  renderBoardTitle();
   await loadState();
   bindGlobalEvents();
 }
+
+// ------------------------------------------------------------
+// Запуск приложения с явным отчётом об ошибке.
+//
+// boot() — async, а обработчик DOMContentLoaded не умеет ловить
+// reject: без .catch() любая ошибка (даже SyntaxError в одном
+// из модулей графа) тихо превращает страницу в пустую доску без
+// единой строчки в консоли. Поэтому логируем её сами.
+// ------------------------------------------------------------
+function startApp() {
+  boot().catch(e => {
+    console.error("[QuestLog] Не удалось запустить приложение:", e);
+    showToast("Не удалось загрузить доску. Подробности — в консоли (F12).");
+  });
+}
+
 
 function bindGlobalEvents() {
   // Поиск
@@ -118,4 +134,4 @@ export async function createAndOpenTask() {
 window.TaskBoard = {
   openQuickAdd() { createAndOpenTask(); },
 };
-document.addEventListener("DOMContentLoaded", boot);
+document.addEventListener("DOMContentLoaded", startApp);

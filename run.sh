@@ -10,6 +10,10 @@ fi
 
 source .venv/bin/activate
 pip install -q -r requirements.txt
+# Ставит pre-commit хук с проверкой синтаксиса JS — без ручной команды.
+if [ -d ".git" ] && [ -f "scripts/pre-commit" ]; then
+    python check_js.py --install-hooks
+fi
 
 echo "Открываю http://127.0.0.1:8420 в браузере через пару секунд…"
 ( sleep 1.5 && python3 -m webbrowser -t "http://127.0.0.1:8420" ) &

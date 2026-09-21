@@ -12,24 +12,63 @@
       document.documentElement.setAttribute("data-theme", "retro");
     } catch (e) {}
   })();
+
+  // ----------------------------------------------------------
+  // Отчёт о фатальной ошибке загрузки.
+  //
+  // Если в одном из модулей опечатка (лишняя скобка, незакрытая
+  // шаблонная строка), браузер не грузит весь граф зависимостей:
+  // ни один script-модуль не выполняется, window.onerror не срабатывает,
+  // в консоли пусто. Со стороны это выглядит как пустая доска без причин.
+  // Поэтому сами проверяем через паузу, поднялось ли приложение:
+  // main.js выставляет window.TaskBoard только после успешного boot().
+  // ----------------------------------------------------------
+  window.addEventListener("DOMContentLoaded", function () {
+    setTimeout(function () {
+      if (window.TaskBoard) return;
+      console.error(
+        "[QuestLog] Приложение не запустилось: похоже, один из JS-модулей " +
+          "не разобрался браузером. Проверьте синтаксис: python check_js.py",
+      );
+      var board = document.getElementById("board");
+      if (!board) return;
+      board.innerHTML =
+        '<div style="padding:24px;font-family:monospace;color:#b33">' +
+        "QuestLog не запустился: ошибка в JS-модуле.<br>" +
+        "Запустите <b>python check_js.py</b> — он укажет файл и строку." +
+        "</div>";
+    }, 300);
+  });
 </script>
 </head>
 <body>
 
 <header class="topbar">
   <div class="topbar-left">
-    <span class="logo-mark" data-icon="logo"></span>
-    <select id="board-select" class="board-select"></select>
-    <button id="new-board-btn" class="icon-btn" title="Новая доска">+ доска</button>
+     <span class="logo-mark" data-icon="logo"></span>
+
+     <!-- Название доски — редактируется прямо здесь: клик по тексту,
+          Enter сохраняет, Esc отменяет. -->
+     <span id="board-title" class="board-title" contenteditable="true"
+           spellcheck="false" title="Нажмите, чтобы переименовать"></span>
+
+     <!-- Переключение между досками — отдельной кнопкой, чтобы клик по
+          названию занимался только переименованием. Само меню лежит в
+          конце <body>: внутри шапки его перекрывали колонки доски. -->
+     <button id="board-switch-btn" class="icon-btn" title="Переключить доску"
+             aria-haspopup="listbox" aria-expanded="false">&#9662;</button>
+     <button id="new-board-btn" class="icon-btn" title="Новая доска">+ доска</button>
+     <!-- Перенос — операция над досками, поэтому стоит рядом с ними,
+          а не среди действий над задачами справа. -->
+     <button id="bulk-move-btn" class="icon-btn" title="Массовый перенос задач по тегу"><span data-icon="move"></span> Перенос</button>
   </div>
   <div class="topbar-center">
     <input id="search-input" type="text" placeholder="Поиск по задачам…  ( / )" class="search-input">
   </div>
   <div class="topbar-right">
     <button id="calendar-toggle-btn" class="icon-btn" title="Календарь"><span data-icon="calendar"></span></button>
-    <button id="new-task-btn" class="btn-primary" title="Новая задача (N)">+ Задача</button>
-    <button id="bulk-move-btn" class="icon-btn" title="Массовые действия"><span data-icon="move"></span> Перенос</button>
-  </div>
+       <button id="new-task-btn" class="btn-primary" title="Новая задача (N)">+ Задача</button>
+    </div>
 </header>
 
 <main id="board" class="board"></main>
@@ -304,6 +343,10 @@
   <div class="context-menu-sep"></div>
   <button class="context-menu-item danger" data-action="delete">Удалить задачу</button>
 </div>
+
+<!-- Список досок. Лежит вне шапки: внутри .topbar его перекрывал
+     контент доски, несмотря на z-index. Позиция считается из JS. -->
+<ul id="board-menu" class="board-menu hidden" role="listbox"></ul>
 
 <div id="toast" class="toast hidden"></div>
 

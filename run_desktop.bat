@@ -61,6 +61,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM Keeps the pre-commit JS syntax check installed without a manual copy.
+if exist ".git" if exist "scripts\pre-commit" "%VENV_PY%" check_js.py --install-hooks
+
 echo Starting QuestLog desktop app (window + tray icon)...
 REM Launched via "start" with pythonw so it detaches from this console:
 REM closing the PowerShell/cmd window will NOT stop the app.
