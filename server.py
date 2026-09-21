@@ -16,6 +16,7 @@ import uuid
 import mimetypes
 import datetime
 from flask import Flask, request, jsonify, send_from_directory, g, abort
+from flask_cors import CORS
 
 # ============================================================
 # Paths & config
@@ -35,6 +36,7 @@ os.makedirs(APP_DIR, exist_ok=True)
 os.makedirs(ATTACH_DIR, exist_ok=True)
 
 app = Flask(__name__, static_folder=None)
+CORS(app)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
 
 DEFAULT_COLUMNS = ["Бэклог", "Todo", "In Progress", "Done", "Cancelled"]
@@ -541,6 +543,109 @@ def move_task(task_id):
     db.execute("UPDATE tasks SET updated_at=? WHERE id=?", (now_iso(), task_id))
     db.commit()
     return jsonify({"ok": True})
+
+
+@app.route("/api/tasks/bulk-move", methods=["POST"])
+def bulk_move_tasks():
+    """Move all tasks matching a tag to a target board/column.
+
+    If target_column_id is omitted, columns are mapped by name
+    (task's current column name → matching column on target board).
+    Falls back to the first non-done column on the target board.
+    """
+    data = request.get_json(force=True)
+    tag = (data.get("tag") or "").strip()
+    source_board_id = data.get("source_board_id")
+    target_board_id = data.get("target_board_id")
+    target_column_id = data.get("target_column_id")
+    task_id_filter = data.get("task_id")
+
+    if not source_board_id or not target_board_id:
+        return jsonify({"error": "source_board_id и target_board_id обязательны"}), 400
+    if not tag and not task_id_filter:
+        return jsonify({"error": "tag или task_id обязателен"}), 400
+
+    db = get_db()
+
+    board = db.execute("SELECT id FROM boards WHERE id=?", (target_board_id,)).fetchone()
+    if not board:
+        return jsonify({"error": "Доска не найдена"}), 404
+
+    source_board = db.execute("SELECT id FROM boards WHERE id=?", (source_board_id,)).fetchone()
+    if not source_board:
+        return jsonify({"error": "Исходная доска не найдена"}), 404
+
+    target_columns = db.execute(
+        "SELECT id, name, is_done_state FROM columns WHERE board_id=? ORDER BY position",
+        (target_board_id,),
+    ).fetchall()
+
+    if target_column_id:
+        column = db.execute(
+            "SELECT id FROM columns WHERE id=? AND board_id=?",
+            (target_column_id, target_board_id),
+        ).fetchone()
+        if not column:
+            return jsonify({"error": "Колонка не найдена в указанной доске"}), 404
+        col_map = {}
+        fallback_col_id = target_column_id
+    else:
+        fallback_col = next(
+            (c for c in target_columns if not c["is_done_state"]), target_columns[0]
+        )
+        fallback_col_id = fallback_col["id"]
+        col_map = {c["name"]: c["id"] for c in target_columns}
+
+    if task_id_filter:
+        all_tasks = db.execute(
+            "SELECT id, column_id FROM tasks WHERE id=? AND board_id=?",
+            (task_id_filter, source_board_id),
+        ).fetchall()
+    else:
+        all_tasks = db.execute(
+            "SELECT id, column_id FROM tasks WHERE board_id=? AND ',' || tags || ',' LIKE ?",
+            (source_board_id, f"%,{tag},%",),
+        ).fetchall()
+
+    task_ids = [r["id"] for r in all_tasks]
+    source_columns = sorted(set(r["column_id"] for r in all_tasks))
+
+    src_col_names = {}
+    for col_id in source_columns:
+        row = db.execute("SELECT name FROM columns WHERE id=?", (col_id,)).fetchone()
+        if row:
+            src_col_names[col_id] = row["name"]
+
+    for task in all_tasks:
+        if target_column_id:
+            dest_col = target_column_id
+        else:
+            col_name = src_col_names.get(task["column_id"])
+            dest_col = col_map.get(col_name, fallback_col_id) if col_name else fallback_col_id
+        db.execute(
+            "UPDATE tasks SET board_id=?, column_id=?, updated_at=? WHERE id=?",
+            (target_board_id, dest_col, now_iso(), task["id"]),
+        )
+
+    for col_id in source_columns:
+        src_tasks = [
+            r["id"] for r in db.execute(
+                "SELECT id FROM tasks WHERE column_id=? ORDER BY position", (col_id,)
+            ).fetchall()
+        ]
+        for i, tid in enumerate(src_tasks):
+            db.execute("UPDATE tasks SET position=? WHERE id=?", (i, tid))
+
+    for col in target_columns:
+        col_tasks = db.execute(
+            "SELECT id FROM tasks WHERE column_id=? ORDER BY position", (col["id"],)
+        ).fetchall()
+        for i, t in enumerate(col_tasks):
+            db.execute("UPDATE tasks SET position=? WHERE id=?", (i, t["id"]))
+
+    db.commit()
+
+    return jsonify({"moved": len(task_ids), "tag": tag, "target_board_id": target_board_id})
 
 
 # ============================================================

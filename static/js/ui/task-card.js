@@ -15,6 +15,7 @@ import { confirmDialog } from "../core/modal.js";
 import { showToast } from "../core/toast.js";
 import { loadState } from "../domain/state-loader.js";
 import { openTaskModal } from "./task-modal.js";
+import { openBulkMoveForTask } from "./bulk-move.js";
 
 let contextMenuTaskId = null;
 
@@ -164,10 +165,18 @@ async function copyTaskTitle() {
   if (!task) return;
   try {
     await navigator.clipboard.writeText(task.title);
-    showToast("Название скопировано");
+    showToast("Название скопирован");
   } catch (e) {
     showToast("Не удалось скопировать");
   }
+  closeContextMenu();
+}
+
+async function moveTaskToBoard() {
+  if (!contextMenuTaskId) return;
+  closeContextMenu();
+  openBulkMoveForTask(contextMenuTaskId);
+}
   closeContextMenu();
 }
 
@@ -254,6 +263,9 @@ export function bindContextMenu() {
   document
     .querySelector('#task-context-menu [data-action="copy"]')
     .addEventListener("click", copyTaskTitle);
+  document
+    .querySelector('#task-context-menu [data-action="move-board"]')
+    .addEventListener("click", moveTaskToBoard);
   document
     .querySelector('#task-context-menu [data-action="delete"]')
     .addEventListener("click", deleteTaskFromMenu);

@@ -28,6 +28,7 @@
   <div class="topbar-right">
     <button id="calendar-toggle-btn" class="icon-btn" title="Календарь"><span data-icon="calendar"></span></button>
     <button id="new-task-btn" class="btn-primary" title="Новая задача (N)">+ Задача</button>
+    <button id="bulk-move-btn" class="icon-btn" title="Массовые действия"><span data-icon="move"></span> Перенос</button>
   </div>
 </header>
 
@@ -227,6 +228,38 @@
   </div>
 </div>
 
+<!-- Bulk move by tag modal -->
+<div id="bulk-move-modal" class="modal-overlay hidden">
+  <div class="modal small-modal" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <h3>Массовый перенос задач</h3>
+      <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>
+    </div>
+    <div class="modal-body">
+      <p class="hint-text">Если колонка не выбрана — задачи распределяются по колонкам целевой доски с теми же названиями.</p>
+      <label class="tm-field">
+        <span>Тег</span>
+        <select id="bm-tag"></select>
+      </label>
+      <label class="tm-field">
+        <span>Целевая доска</span>
+        <select id="bm-board"></select>
+      </label>
+      <label class="tm-field">
+        <span>Целевая колонка <em>(необязательно)</em></span>
+        <select id="bm-column"></select>
+      </label>
+    </div>
+    <div class="modal-footer">
+      <span></span>
+      <div class="footer-actions">
+        <button class="btn-secondary" data-close>Отмена</button>
+        <button id="bm-execute-btn" class="btn-primary">Перенести</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Attachment preview lightbox -->
 <div id="attachment-lightbox" class="lightbox-overlay hidden">
   <div class="lightbox-content">
@@ -266,9 +299,10 @@
     <input id="cm-subtask-input" placeholder="Название подзадачи…" autocomplete="off">
     <button class="btn-primary" id="cm-subtask-add">Добавить</button>
  </div>
- <button class="context-menu-item" data-action="copy">Копировать название</button>
- <div class="context-menu-sep"></div>
- <button class="context-menu-item danger" data-action="delete">Удалить задачу</button>
+  <button class="context-menu-item" data-action="copy">Копировать название</button>
+  <button class="context-menu-item" data-action="move-board">Перенести на доску…</button>
+  <div class="context-menu-sep"></div>
+  <button class="context-menu-item danger" data-action="delete">Удалить задачу</button>
 </div>
 
 <div id="toast" class="toast hidden"></div>

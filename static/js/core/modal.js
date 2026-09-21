@@ -70,6 +70,7 @@ export function confirmDialog(
       resolve(value);
     };
     ok.onclick = () => finish(true);
+    byId("confirm-cancel").className = "btn-secondary";
     byId("confirm-cancel").onclick = () => finish(false);
 
     openOverlay("confirm-modal", () => finish(false));

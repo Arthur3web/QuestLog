@@ -23,7 +23,7 @@ function renderPeopleList() {
     const row = document.createElement("div");
     row.className = "person-row";
     row.innerHTML = `
-      <div class="avatar" style="background:${u.color}">${initials(u.name)}</div>
+      <div class="avatar" style="background:${u.color}">${escapeHtml(initials(u.name))}</div>
       <span class="name">${escapeHtml(u.name)}</span>
       <button class="remove-btn" title="Удалить">${ICONS.close}</button>
     `;
@@ -68,3 +68,4 @@ export function bindPeople() {
     if (onlyMine) renderBoard();
   });
 }
+

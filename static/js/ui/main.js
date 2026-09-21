@@ -30,6 +30,7 @@ import { loadState } from "../domain/state-loader.js";
 import { openTaskModal, bindTaskModal } from "./task-modal.js";
 import { bindCalendar } from "./calendar.js";
 import { bindPeople } from "./people.js";
+import { bindBulkMove } from "./bulk-move.js";
 
 async function boot() {
   renderIcons();
@@ -91,6 +92,7 @@ function bindGlobalEvents() {
   bindCalendar();
   bindPeople();
   bindBoards();
+  bindBulkMove();
 }
 
 // ------------------------------------------------------------

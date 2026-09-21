@@ -5,15 +5,6 @@
    FIRST, so the theme block below can freely override them.
    ============================================================ */
 :root {
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --border-width: 1px;
-
-  --font: "Segoe UI", -apple-system, Roboto, Helvetica, Arial, sans-serif;
-  --font-display: Georgia, "Times New Roman", "Palatino Linotype", serif;
-}
-
-:root {
   --bg: #A9B48C;
   --surface: #B6C096;
   --surface-raised: #C2CBA4;
@@ -500,7 +491,7 @@ body {
   vertical-align: -0.15em;
 }
 .logo-mark .icon { width: 17px; height: 17px; }
-.icon-btn .icon { width: 14px; height: 14px; }
+.icon-btn .icon { width: 14px; height: 14px; margin-right: 5px; }
 .modal-close .icon,
 .delete-col-btn .icon,
 .remove-btn .icon { width: 14px; height: 14px; }
