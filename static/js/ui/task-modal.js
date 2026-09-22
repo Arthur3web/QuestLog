@@ -36,6 +36,7 @@ export async function openTaskModal(taskId, { selectTitle = false, isNew = false
   byId("tm-due").value = task.due_date || "";
   byId("tm-tags").value = task.tags.join(", ");
   byId("tm-description").value = task.description || "";
+  autoGrowDescription();
   renderTagPresets(task.tags);
 
   const columnSel = byId("tm-column");
@@ -62,10 +63,16 @@ export async function openTaskModal(taskId, { selectTitle = false, isNew = false
   authorSel.innerHTML = state.users.map(u => `<option value="${u.id}">${escapeHtml(u.name)}</option>`).join("");
   authorSel.value = currentUserId || (state.users[0] && state.users[0].id) || "";
 
+  byId("tm-comment-text").value = "";
+  updateCommentSubmitState();
+
   renderSubtasks(task.subtasks);
   renderAttachments(task.attachments);
   renderComments(task.comments);
   renderTimeTracking(task);
+
+  byId("tm-subtask-input").value = "";
+  updateSubtaskAddState();
 
   const ov = openOverlay("task-modal", async () => {
     clearTimerTicker();
@@ -86,6 +93,17 @@ export async function openTaskModal(taskId, { selectTitle = false, isNew = false
   }
   byId("tm-heading").textContent = task.title || "Задача";
 
+  // Пересчитываем высоту поля описания ПОСЛЕ открытия модалки:
+  // на момент заполнения она ещё была hidden (display:none), а у
+  // скрытого элемента scrollHeight = 0 — поле осталось бы низким.
+  // То же самое касается textarea подзадач: они отрисованы выше,
+  // пока модалка была скрыта.
+  requestAnimationFrame(() => {
+    autoGrowDescription();
+    document.querySelectorAll(".subtask-item .subtask-title")
+      .forEach(autosizeSubtaskField);
+  });
+
   if (selectTitle) {
     setTimeout(() => { titleInput.focus(); titleInput.select(); }, 40);
   }
@@ -97,6 +115,7 @@ export function resetTaskModalForm() {
   taskSaved = false;
   byId("tm-title").value = "";
   byId("tm-description").value = "";
+  autoGrowDescription();
   byId("tm-priority").value = "normal";
   byId("tm-assignee").innerHTML = `<option value="">Без исполнителя</option>`;
   byId("tm-assignee").value = "";
@@ -105,6 +124,8 @@ export function resetTaskModalForm() {
   byId("tm-column").innerHTML = "";
   byId("tm-subtasks").innerHTML = "";
   byId("tm-subtasks-progress").textContent = "";
+  byId("tm-subtask-input").value = "";
+  updateSubtaskAddState();
   byId("tm-attachments").innerHTML = "";
   byId("tm-comments").innerHTML = "";
   byId("tm-time-total").textContent = "";
@@ -117,7 +138,26 @@ export function resetTaskModalForm() {
   renderTagPresets([]);
   const saveBtn = byId("tm-save-btn");
   if (saveBtn) saveBtn.disabled = true;
+  byId("tm-comment-text").value = "";
+  updateCommentSubmitState();
   clearOpenTask();
+}
+
+// ------------------------------------------------------------
+// Поле описания растёт под текст
+//
+// Большое описание должно быть видно целиком, но в рамках модалки:
+// поле растёт по содержимому до ограничения по высоте, дальше появляется
+// внутренняя прокрутка — модалка при этом не разъезжается.
+// ------------------------------------------------------------
+export function autoGrowDescription() {
+  const ta = byId("tm-description");
+  if (!ta) return;
+  // Сначала сбрасываем высоту, иначе при удалении текста она не уменьшается.
+  ta.style.height = "auto";
+  const max = Math.round(window.innerHeight * 0.5);
+  ta.style.height = Math.min(ta.scrollHeight, max) + "px";
+  ta.style.overflowY = ta.scrollHeight > max ? "auto" : "hidden";
 }
 
 // ------------------------------------------------------------
@@ -149,6 +189,14 @@ export function updateSaveButtonState() {
 // ------------------------------------------------------------
 // Подзадачи
 // ------------------------------------------------------------
+// Textarea подзадачи растёт под текст (от 1 строки), поэтому длинное
+// название видно целиком — без отдельной кнопки-раскрывашки.
+function autosizeSubtaskField(el) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
+
 function renderSubtasks(subtasks) {
   const list = byId("tm-subtasks");
   const progress = byId("tm-subtasks-progress");
@@ -173,13 +221,17 @@ function renderSubtasks(subtasks) {
   subtasks.forEach(s => {
     const row = document.createElement("div");
     row.className = "subtask-item" + (s.done ? " done" : "");
+    // Название подзадачи — textarea, а не input: длинный текст
+    // переносится и виден целиком, без отдельной кнопки-раскрывашки.
     row.innerHTML = `
       <input type="checkbox" ${s.done ? "checked" : ""}>
-      <input type="text" class="subtask-title" value="${escapeHtml(s.title)}">
+      <textarea class="subtask-title" rows="1" spellcheck="false">${escapeHtml(s.title)}</textarea>
       <button class="remove-btn" title="Удалить">${ICONS.close}</button>
     `;
     const checkbox = row.querySelector('input[type="checkbox"]');
     const titleInput = row.querySelector(".subtask-title");
+    // Пересчёт высоты при вводе названия.
+    titleInput.addEventListener("input", () => autosizeSubtaskField(titleInput));
     checkbox.addEventListener("change", async () => {
       await API.put(`/api/subtasks/${s.id}`, { done: checkbox.checked });
       const task = await API.get(`/api/tasks/${openTaskId}`);
@@ -196,7 +248,8 @@ function renderSubtasks(subtasks) {
       await loadState();  // обновить счётчик подзадач на карточке
     });
     titleInput.addEventListener("keydown", e => {
-      if (e.key === "Enter") { e.preventDefault(); titleInput.blur(); }
+      // Enter сохраняет, Shift+Enter — перенос строки внутри названия.
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); titleInput.blur(); }
     });
     row.querySelector(".remove-btn").addEventListener("click", async () => {
       const ok = await confirmDialog(
@@ -210,6 +263,9 @@ function renderSubtasks(subtasks) {
       await loadState();
     });
     list.appendChild(row);
+    // Высоту считаем только ПОСЛЕ вставки в DOM: у отдельного элемента
+    // scrollHeight = 0, и textarea осталась бы высотой в одну строку.
+    autosizeSubtaskField(titleInput);
   });
 }
 
@@ -219,10 +275,18 @@ export async function addSubtaskFromModal() {
   if (!title || !openTaskId) return;
   await API.post(`/api/tasks/${openTaskId}/subtasks`, { title });
   input.value = "";
+  updateSubtaskAddState();
   const task = await API.get(`/api/tasks/${openTaskId}`);
   renderSubtasks(task.subtasks);
   await loadState();
   input.focus();
+}
+
+// Кнопка «+ добавить» неактивна, пока поле новой подзадачи пусто.
+export function updateSubtaskAddState() {
+  const btn = byId("tm-subtask-add");
+  const input = byId("tm-subtask-input");
+  if (btn && input) btn.disabled = input.value.trim().length === 0;
 }
 
 // ------------------------------------------------------------
@@ -326,9 +390,18 @@ export async function submitCommentFromModal() {
   setCurrentUserId(userId);
   await API.post(`/api/tasks/${openTaskId}/comments`, { user_id: userId, text });
   byId("tm-comment-text").value = "";
+  updateCommentSubmitState();
   const task = await API.get(`/api/tasks/${openTaskId}`);
   renderComments(task.comments);
   await loadState();
+}
+
+// Кнопка «Отправить» неактивна, пока текст комментария пуст (или одни
+// пробелы) — чтобы нельзя было отправить пустой комментарий.
+export function updateCommentSubmitState() {
+  const btn = byId("tm-comment-submit");
+  const input = byId("tm-comment-text");
+  if (btn && input) btn.disabled = input.value.trim().length === 0;
 }
 
 // ------------------------------------------------------------
@@ -501,7 +574,10 @@ export async function deleteOpenTask() {
 export function bindTaskModal() {
   // Отслеживание изменений полей — включает кнопку «Сохранить»
   byId("tm-title").addEventListener("input", updateSaveButtonState);
-  byId("tm-description").addEventListener("input", updateSaveButtonState);
+  byId("tm-description").addEventListener("input", () => {
+    autoGrowDescription();
+    updateSaveButtonState();
+  });
   byId("tm-priority").addEventListener("change", updateSaveButtonState);
   byId("tm-assignee").addEventListener("change", updateSaveButtonState);
   byId("tm-due").addEventListener("change", updateSaveButtonState);
@@ -517,12 +593,23 @@ export function bindTaskModal() {
 
   // Подзадачи
   byId("tm-subtask-add").addEventListener("click", addSubtaskFromModal);
+  byId("tm-subtask-input").addEventListener("input", updateSubtaskAddState);
   byId("tm-subtask-input").addEventListener("keydown", e => {
     if (e.key === "Enter") { e.preventDefault(); addSubtaskFromModal(); }
   });
+  updateSubtaskAddState();
 
   // Комментарии
   byId("tm-comment-submit").addEventListener("click", submitCommentFromModal);
+  // Кнопка отправки активна только при непустом тексте
+  byId("tm-comment-text").addEventListener("input", updateCommentSubmitState);
+  byId("tm-comment-text").addEventListener("keydown", e => {
+    // Ctrl/Cmd+Enter отправляет комментарий — привычный шоткат
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      submitCommentFromModal();
+    }
+  });
 
   // Таймер
   byId("tm-timer-toggle").addEventListener("click", toggleTimerFromModal);

@@ -12,6 +12,8 @@ export const ICONS = {
   download: `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/></svg>`,
   timer: `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9v4l3 2M9 2h6M12 2v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>`,
   move: `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/></svg>`,
+  boards: `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="4" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="11" width="18" height="4" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="18" width="18" height="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>`,
+  chevronDown: `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 9 7 7 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/></svg>`,
 };
 
 export const ICON_TEXT = {

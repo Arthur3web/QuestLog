@@ -31,6 +31,7 @@ import { openTaskModal, bindTaskModal } from "./task-modal.js";
 import { bindCalendar } from "./calendar.js";
 import { bindPeople } from "./people.js";
 import { bindBulkMove } from "./bulk-move.js";
+import { attachDatePicker, bindDatePickers } from "./date-picker.js";
 
 async function boot() {
   renderIcons();
@@ -109,6 +110,11 @@ function bindGlobalEvents() {
   bindPeople();
   bindBoards();
   bindBulkMove();
+
+  // Тематический выбор даты вместо нативного календаря браузера.
+  bindDatePickers();
+  attachDatePicker(byId("tm-due"));
+  attachDatePicker(byId("cm-due"));
 }
 
 // ------------------------------------------------------------

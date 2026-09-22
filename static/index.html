@@ -47,16 +47,20 @@
   <div class="topbar-left">
      <span class="logo-mark" data-icon="logo"></span>
 
+     <!-- Переключение между досками — кнопкой СЛЕВА от названия, чтобы
+          при смене доски название не сдвигало соседние кнопки: сама
+          кнопка имеет фиксированную ширину и не зависит от длины имени.
+          Само меню лежит в конце <body>: внутри шапки его перекрывали
+          колонки доски. -->
+     <button id="board-switch-btn" class="icon-btn" title="Переключить доску"
+             aria-haspopup="listbox" aria-expanded="false"><span data-icon="boards"></span></button>
+
      <!-- Название доски — редактируется прямо здесь: клик по тексту,
-          Enter сохраняет, Esc отменяет. -->
+          Enter сохраняет, Esc отменяет. Ширина ограничена и стабильна,
+          поэтому кнопки вокруг не «бегают» при смене доски. -->
      <span id="board-title" class="board-title" contenteditable="true"
            spellcheck="false" title="Нажмите, чтобы переименовать"></span>
 
-     <!-- Переключение между досками — отдельной кнопкой, чтобы клик по
-          названию занимался только переименованием. Само меню лежит в
-          конце <body>: внутри шапки его перекрывали колонки доски. -->
-     <button id="board-switch-btn" class="icon-btn" title="Переключить доску"
-             aria-haspopup="listbox" aria-expanded="false">&#9662;</button>
      <button id="new-board-btn" class="icon-btn" title="Новая доска">+ доска</button>
      <!-- Перенос — операция над досками, поэтому стоит рядом с ними,
           а не среди действий над задачами справа. -->
@@ -88,7 +92,16 @@
     </div>
     <div id="calendar-grid" class="calendar-grid"></div>
     <div class="calendar-day-tasks">
-      <h4 id="calendar-day-heading">Задачи на день</h4>
+      <div class="calendar-day-head">
+        <h4 id="calendar-day-heading">Задачи на день</h4>
+        <!-- Быстрый фильтр списка дня: все / горящие / просроченные -->
+        <div id="calendar-filters" class="calendar-filters">
+          <button class="cal-filter active" data-cal-filter="all">Все</button>
+          <button class="cal-filter" data-cal-filter="soon">Горящие</button>
+          <button class="cal-filter" data-cal-filter="overdue">Просрочено</button>
+          <button class="cal-filter" data-cal-filter="done">Готово</button>
+        </div>
+      </div>
       <div id="calendar-day-list" class="calendar-day-list"></div>
     </div>
   </div>
@@ -140,7 +153,9 @@
         </label>
         <label class="tm-field">
           <span>Срок</span>
-          <input id="tm-due" type="date" autocomplete="off">
+          <span class="dp-input-wrap">
+            <input id="tm-due" type="date" autocomplete="off">
+          </span>
         </label>
         <label class="tm-field" style="grid-column: 1 / -1;">
           <span>Теги</span>
@@ -151,7 +166,7 @@
 
       <label class="tm-field tm-desc-field">
         <span>Описание</span>
-        <textarea id="tm-description" rows="4" placeholder="Подробности задачи…"></textarea>
+        <textarea id="tm-description" rows="2" placeholder="Подробности задачи…"></textarea>
       </label>
 
       <section class="tm-section">
@@ -175,7 +190,7 @@
         <div id="tm-subtasks" class="subtask-list"></div>
         <div class="subtask-composer">
           <input id="tm-subtask-input" placeholder="Новая подзадача…" autocomplete="off">
-          <button id="tm-subtask-add" class="btn-secondary">+ добавить</button>
+          <button id="tm-subtask-add" class="btn-secondary" disabled>+ добавить</button>
         </div>
       </section>
 
@@ -194,7 +209,7 @@
         <div class="comment-composer">
           <select id="tm-comment-author"></select>
           <textarea id="tm-comment-text" rows="2" placeholder="Написать комментарий…" autocomplete="off"></textarea>
-          <button id="tm-comment-submit" class="btn-primary">Отправить</button>
+          <button id="tm-comment-submit" class="btn-primary" disabled>Отправить</button>
         </div>
       </section>
     </div>
@@ -271,12 +286,12 @@
 <div id="bulk-move-modal" class="modal-overlay hidden">
   <div class="modal small-modal" role="dialog" aria-modal="true">
     <div class="modal-header">
-      <h3>Массовый перенос задач</h3>
+      <h3 id="bm-title">Массовый перенос задач</h3>
       <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>
     </div>
     <div class="modal-body">
-      <p class="hint-text">Если колонка не выбрана — задачи распределяются по колонкам целевой доски с теми же названиями.</p>
-      <label class="tm-field">
+      <p id="bm-hint" class="hint-text">Если колонка не выбрана — задачи распределяются по колонкам целевой доски с теми же названиями.</p>
+      <label class="tm-field" id="bm-tag-field">
         <span>Тег</span>
         <select id="bm-tag"></select>
       </label>
@@ -326,7 +341,9 @@
  </label>
  <label class="context-menu-field">
     <span class="cm-label">Срок</span>
-    <input id="cm-due" type="date">
+    <span class="dp-input-wrap">
+      <input id="cm-due" type="date">
+    </span>
  </label>
  <label class="context-menu-field">
     <span class="cm-label">Статус</span>

@@ -122,7 +122,8 @@ body {
 }
 
 /* Название доски: редактируется кликом, поэтому ведёт себя как поле,
-   но выглядит как заголовок. */
+   но выглядит как заголовок. Ширина СТАБИЛЬНА (не зависит от длины
+   имени), иначе при переключении досок кнопки справа «бегают». */
 .board-title {
   font-family: var(--font-display);
   font-weight: 700;
@@ -134,7 +135,9 @@ body {
   border-radius: var(--radius-sm);
   cursor: text;
   outline: none;
-  max-width: 320px;
+  width: 220px;
+  max-width: 40vw;
+  flex: 0 0 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -145,14 +148,17 @@ body {
   border-color: var(--accent);
   background: var(--surface-sunken);
   white-space: normal;
+  width: auto;
+  min-width: 220px;
 }
 
-/* Кнопка переключения доски: узкая стрелка рядом с названием. */
+/* Кнопка переключения доски: квадратная кнопка-иконка слева от названия. */
 #board-switch-btn {
-  padding: 7px 8px;
-  font-size: 11px;
+  padding: 7px 9px;
   line-height: 1;
+  flex: 0 0 auto;
 }
+#board-switch-btn .icon { width: 15px; height: 15px; margin-right: 0; }
 
 /* Выпадающий список досок.
    position: fixed — потому что absolute внутри шапки обрезался её
@@ -536,9 +542,43 @@ body {
 }
 .priority-label.normal { color: var(--text-faint); }
 
-.card-due { font-size: 11px; }
+/* Строка «Срок + время» — одной строкой под описанием карточки */
+.card-due-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.card-due {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+/* Подпись «Срок:» — всегда видна, чтобы дата не читалась как случайное число */
+.card-due .card-due-label {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+}
 .card-due.overdue { color: var(--danger); font-weight: 600; }
+.card-due.overdue .card-due-label { color: var(--danger); }
 .card-due.due-soon { color: var(--warning, #E8590C); font-weight: 600; }
+.card-due.due-soon .card-due-label { color: var(--warning, #E8590C); }
+
+/* Затраченное время на карточке — прижато вправо в футере */
+.card-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.card-time .icon { width: 12px; height: 12px; }
+.card-time.timer-running { color: var(--accent-bright); }
 
 .card-footer .spacer { flex: 1; }
 
@@ -561,6 +601,17 @@ body {
   align-items: center;
 }
 .icon-btn > [data-icon] { line-height: 0; }
+
+/* Кнопка календаря — только иконка, поэтому центрируем её строго по
+   обеим осям: без этого .icon-btn .icon { margin-right: 5px } сдвигает
+   иконку влево и она стоит не посередине кнопки. */
+#calendar-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 9px;
+}
+#calendar-toggle-btn .icon { margin-right: 0; width: 15px; height: 15px; }
 .modal-close .icon,
 .delete-col-btn .icon,
 .remove-btn .icon { width: 14px; height: 14px; }
@@ -705,6 +756,11 @@ body {
   background: var(--surface-sunken);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
+/* Поле даты со своей иконкой календаря: оставляем место справа под неё.
+   Идёт ПОСЛЕ общей группы, чтобы перебить её padding. */
+.modal .dp-input-wrap > input {
+  padding-right: 34px;
+}
 .modal select { padding-right: 22px; }
 .modal input:focus,
 .modal select:focus,
@@ -748,7 +804,14 @@ body {
   color: var(--text-muted);
 }
 .tm-desc-field { margin-bottom: 4px; }
-.tm-desc-field textarea { resize: vertical; }
+/* Скрытое поле в модалке (напр. тег в одиночном переносе) */
+.tm-field.hidden { display: none; }
+.tm-desc-field textarea {
+  resize: none;
+  overflow-y: hidden;
+  line-height: 1.5;
+  min-height: 52px;
+}
 
 .tag-preset-row {
   display: flex;
@@ -970,6 +1033,7 @@ body {
 .subtask-item {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   background: var(--surface-sunken);
   border: var(--border-width) solid var(--border-soft);
@@ -977,13 +1041,30 @@ body {
   padding: 6px 10px;
   font-size: 13px;
 }
+/* Название подзадачи — textarea: длинный текст переносится и виден
+   целиком, без отдельной кнопки-раскрывашки. */
+.subtask-item .subtask-title {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 2px 0;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .subtask-item input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   flex: 0 0 auto;
+  align-self: flex-start;
   width: 16px;
   height: 16px;
-  margin: 0;
+  margin: 2px 0 0;
   border: var(--border-width) solid var(--border-strong);
   border-radius: 0;
   background: var(--surface);
@@ -1004,17 +1085,11 @@ body {
   border-color: var(--border-strong);
   background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'%3E%3Cpath d='M1 4.5 3.5 7 9 1' fill='none' stroke='%23F2EFDD' stroke-width='2'/%3E%3C/svg%3E") center / 9px 7px no-repeat;
 }
-.subtask-item .subtask-title {
-  flex: 1;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  font-size: 13px;
-  padding: 2px 0;
-}
 .subtask-item .subtask-title:focus { outline: none; border-bottom: 1px solid var(--accent); }
 .subtask-item.done .subtask-title { color: var(--text-faint); text-decoration: line-through; }
 .subtask-item .remove-btn {
+  align-self: flex-start;
+  margin-top: 2px;
   border: none;
   background: transparent;
   color: var(--text-faint);
@@ -1143,7 +1218,7 @@ body {
   max-width: 92vw;
   background: linear-gradient(180deg, var(--surface-raised), var(--surface));
   border-left: var(--border-width) solid var(--border);
-  box-shadow: var(--shadow-modal);
+  box-shadow: -6px 0 0 rgba(0, 0, 0, 0.3);
   z-index: 60;
   display: flex;
   flex-direction: column;
@@ -1181,6 +1256,7 @@ body {
 }
 .calendar-month-nav .icon-btn { padding: 4px 10px; font-size: 15px; }
 .calendar-month-label {
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 13.5px;
   text-transform: capitalize;
@@ -1194,8 +1270,12 @@ body {
 }
 .calendar-weekday {
   text-align: center;
+  font-family: var(--font-display);
   font-size: 10.5px;
-  color: var(--text-faint);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
   padding-bottom: 4px;
 }
 .calendar-day {
@@ -1204,18 +1284,37 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: var(--border-width) solid transparent;
+  border: var(--border-width) solid var(--border-soft);
   border-radius: var(--radius-sm);
+  font-family: var(--font-display);
   font-size: 12px;
   cursor: pointer;
   background: var(--surface-sunken);
   color: var(--text);
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
-.calendar-day:hover { border-color: var(--accent); }
+/* Пустые (без задач) дни — приглушённая рамка, чтобы сетка не была
+   тяжёлой; у дней с задачами рамка уже видна за счёт точек. */
+.calendar-day:hover {
+  border-color: var(--accent);
+  background: var(--surface);
+  color: var(--accent);
+}
 .calendar-day.other-month { opacity: 0.35; }
 .calendar-day.today { border-color: var(--accent-bright); font-weight: 700; }
-.calendar-day.selected { background: var(--accent); color: var(--on-accent); }
+.calendar-day.today::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: var(--border-width) solid var(--accent-bright);
+  pointer-events: none;
+}
+.calendar-day.selected {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--border-strong);
+}
+.calendar-day.selected:hover { background: var(--accent-hover); color: var(--on-accent); }
 .calendar-day .day-dots {
   position: absolute;
   bottom: 3px;
@@ -1252,6 +1351,33 @@ body {
   font-size: 13px;
   color: var(--text-muted);
   flex-shrink: 0;
+}
+.calendar-day-head { flex-shrink: 0; }
+.calendar-day-head h4 { margin: 0 0 8px; }
+/* Быстрые фильтры списка дня */
+.calendar-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.cal-filter {
+  border: var(--border-width) solid var(--border-soft);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.cal-filter:hover { border-color: var(--accent); color: var(--accent); }
+.cal-filter.active {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  color: var(--accent);
+  font-weight: 700;
 }
 .calendar-day-list {
   flex: 1;
@@ -1351,6 +1477,7 @@ body {
   padding: 4px 6px 4px 10px;
 }
 .context-menu-field select,
+.context-menu-field .dp-input-wrap > input,
 .context-menu-field input[type="date"] {
   flex: 1;
   min-width: 0;
@@ -1364,6 +1491,7 @@ body {
   cursor: pointer;
 }
 .context-menu-field select:focus,
+.context-menu-field .dp-input-wrap > input:focus,
 .context-menu-field input[type="date"]:focus {
   outline: none;
   border-color: var(--accent);
@@ -1552,3 +1680,168 @@ body {
   0%,100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
+
+/* ============================================================
+   Themed date picker (замена нативного календаря браузера)
+   ============================================================ */
+/* Обёртка вокруг поля даты: поле + кнопка-иконка справа */
+.dp-input-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+.dp-input-wrap input {
+  width: 100%;
+  padding-right: 34px;
+  /* Клики не должны доходить до самого поля — их ловит .dp-cover.
+     Поле только показывает дату. */
+  pointer-events: none;
+  cursor: pointer;
+}
+/* Явная темизация поля даты вне зависимости от контекста (модалка,
+   контекстное меню): без неё браузер мог отрисовать его белым. */
+.dp-input-wrap > input {
+  background: var(--surface-sunken);
+  color: var(--text);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 13.5px;
+  padding: 8px 34px 8px 10px;
+}
+/* Кнопка-иконка календаря поверх правого края поля */
+.dp-toggle {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+}
+/* Прозрачная накладка на всё поле: перехватывает клик */
+.dp-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.dp-toggle:hover { color: var(--accent); background: var(--accent-glow); }
+.dp-toggle .icon { width: 15px; height: 15px; }
+.dp-input-wrap input.dp-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* Выпадающий календарь в стиле темы */
+.date-picker-popup {
+  position: fixed;
+  z-index: 9999;
+  width: 268px;
+  padding: 10px;
+  background: var(--surface-raised);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  font-family: var(--font);
+  animation: modal-in 0.14s ease-out;
+}
+.date-picker-popup.hidden { display: none; }
+
+.dp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.dp-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: capitalize;
+  color: var(--text);
+}
+.dp-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--border-width) solid var(--border);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 3px 7px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.dp-nav:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+.dp-nav .icon { width: 14px; height: 14px; }
+
+.dp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.dp-weekday {
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding-bottom: 3px;
+}
+.dp-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--border-width) solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.dp-day:hover { border-color: var(--accent); background: var(--surface); color: var(--accent); }
+.dp-day.other-month { opacity: 0.35; }
+.dp-day.today { border-color: var(--accent-bright); font-weight: 700; }
+.dp-day.selected {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--border-strong);
+}
+.dp-day.selected:hover { background: var(--accent-hover); color: var(--on-accent); }
+
+.dp-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: var(--border-width) solid var(--border-soft);
+}
+.dp-link {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+}
+.dp-link:hover { color: var(--accent-bright); text-decoration: underline; }

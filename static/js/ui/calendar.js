@@ -12,6 +12,7 @@ import { openTaskModal } from "./task-modal.js";
 let calendarOpen = false;
 let calendarViewDate = new Date(); // отображаемый месяц
 let calendarSelectedDate = toDateKey(new Date()); // выбранный день
+let calendarFilter = "all"; // фильтр списка дня: all | soon | overdue | done
 
 // id колонок, считающихся завершёнными (Done/Cancelled — is_done_state)
 function doneColumnIds() {
@@ -137,29 +138,74 @@ function render() {
       t.due_date < calendarSelectedDate &&
       !dayIds.has(t.id),
   );
-  byId("calendar-day-heading").textContent =
-    `Задачи на ${formatDate(calendarSelectedDate)}`;
+  // Фильтры списка дня.
+  //
+  // «Все» — полный список дня: задачи с бейджами («горит»/«просрочена»)
+  // и отдельный блок «просроченные из прошлых дней».
+  // При активном конкретном фильтре сам фильтр и есть статус, поэтому
+  // бейджи и блок перенесённых убираются (без дублирования одного
+  // и того же на каждой строке) — список становится плоским.
+  const isFiltered = calendarFilter !== "all";
+
+  // Заголовок уточняем по активному фильтру: «Просроченные · 22.09»
+  // читается лучше, чем просто «Задачи на 22.09».
+  const filterLabel = { soon: "Горящие", overdue: "Просроченные", done: "Готовые" }[calendarFilter];
+  byId("calendar-day-heading").textContent = filterLabel
+    ? `${filterLabel} · ${formatDate(calendarSelectedDate)}`
+    : `Задачи на ${formatDate(calendarSelectedDate)}`;
+
+  const matchSoon = (t) => !t.isDone && isDueSoon(t.due_date, 1);
+  const matchOverdue = (t) => !t.isDone && isOverdue(t.due_date);
+  const matchDone = (t) => t.isDone;
+
+  let rows = []; // { task, badge }
+  if (isFiltered) {
+    if (calendarFilter === "soon") {
+      // Сегодня/завтра. Просроченное сюда не входит — у него свой фильтр.
+      rows = dayTasks.filter(matchSoon).map((t) => ({ task: t, badge: "" }));
+    } else if (calendarFilter === "overdue") {
+      // Всё просроченное и незакрытое: и сегодняшние, и переехавшие.
+      // Сортируем так, чтобы сильнее просроченные были выше.
+      rows = [...dayTasks, ...carriedOver]
+        .filter(matchOverdue)
+        .sort((a, b) => a.due_date.localeCompare(b.due_date))
+        .map((t) => ({ task: t, badge: `<span class="due-badge">${-daysUntil(t.due_date)} дн.</span>` }));
+    } else if (calendarFilter === "done") {
+      rows = dayTasks.filter(matchDone).map((t) => ({ task: t, badge: "" }));
+    }
+  } else {
+    // Полный список: сначала задачи дня (с бейджами), затем перенесённые
+    // отдельным блоком — для них бейдж показывает, на сколько дней просрочка.
+    rows = dayTasks.map((t) => ({ task: t, badge: badgeFor(t, false) }));
+    const carried = carriedOver.map((t) => ({ task: t, badge: badgeFor(t, true), carried: true }));
+    rows.push(...carried);
+  }
+
+  function badgeFor(t, carried) {
+    if (carried) return `<span class="due-badge">${-daysUntil(t.due_date)} дн.</span>`;
+    if (!t.isDone && isOverdue(t.due_date)) return '<span class="due-badge">просрочена</span>';
+    if (!t.isDone && isDueSoon(t.due_date, 1)) return '<span class="due-badge soon">горит</span>';
+    return "";
+  }
 
   const dayList = byId("calendar-day-list");
   dayList.innerHTML = "";
-  if (!dayTasks.length && !carriedOver.length) {
-    dayList.innerHTML = `<span class="hint-text">На этот день задач нет.</span>`;
+  if (!rows.length) {
+    dayList.innerHTML = `<span class="hint-text">${
+      dayTasks.length || carriedOver.length ? "Под фильтр ничего не подходит." : "На этот день задач нет."
+    }</span>`;
   } else {
-    const appendRow = (t, { carried = false } = {}) => {
+    rows.forEach(({ task: t, badge, carried }) => {
+      // В режиме «Все» перенесённые идут после отдельного заголовка
+      if (!isFiltered && carried && !dayList.querySelector(".calendar-overdue-heading")) {
+        const head = document.createElement("div");
+        head.className = "calendar-overdue-heading";
+        head.textContent = `Просроченные из прошлых дней (${rows.filter((r) => r.carried).length})`;
+        dayList.appendChild(head);
+      }
       const row = document.createElement("div");
       row.className = "calendar-day-item" + (t.isDone ? " done" : "");
       const overdue = !t.isDone && isOverdue(t.due_date);
-      const dueSoon = !t.isDone && isDueSoon(t.due_date, 1);
-      // В основном списке — бейдж «просрочена»; в блоке перенесённых он
-      // избыточен (заголовок уже говорит об этом), там показываем на сколько дней.
-      const lateDays = overdue ? -daysUntil(t.due_date) : 0;
-      const badge = carried
-        ? `<span class="due-badge">${lateDays} дн.</span>`
-        : overdue
-          ? '<span class="due-badge">просрочена</span>'
-          : dueSoon
-            ? '<span class="due-badge soon">горит</span>'
-            : "";
       row.innerHTML = `
         <span class="priority-dot ${t.priority}${overdue ? " overdue" : ""}"></span>
         <span class="title">${escapeHtml(t.title)}</span>
@@ -170,15 +216,7 @@ function render() {
         openTaskModal(t.id);
       });
       dayList.appendChild(row);
-    };
-    dayTasks.forEach(appendRow);
-    if (carriedOver.length) {
-      const head = document.createElement("div");
-      head.className = "calendar-overdue-heading";
-      head.textContent = `Просроченные из прошлых дней (${carriedOver.length})`;
-      dayList.appendChild(head);
-      carriedOver.forEach((t) => appendRow(t, { carried: true }));
-    }
+    });
   }
 }
 
@@ -189,6 +227,16 @@ export function bindCalendar() {
   });
   byId("calendar-close-btn").addEventListener("click", close);
   byId("calendar-overlay").addEventListener("click", close);
+
+  // Фильтр списка задач дня
+  byId("calendar-filters").addEventListener("click", (e) => {
+    const btn = e.target.closest(".cal-filter");
+    if (!btn) return;
+    calendarFilter = btn.dataset.calFilter;
+    byId("calendar-filters").querySelectorAll(".cal-filter")
+      .forEach((b) => b.classList.toggle("active", b === btn));
+    render();
+  });
   byId("calendar-prev-month").addEventListener("click", () => {
     calendarViewDate = new Date(
       calendarViewDate.getFullYear(),

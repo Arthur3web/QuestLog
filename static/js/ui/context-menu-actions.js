@@ -50,7 +50,7 @@ export async function copyTaskTitle(taskId) {
   if (!task) return;
   try {
     await navigator.clipboard.writeText(task.title);
-    showToast("Название скопирован");
+    showToast("Название скопировано");
   } catch (e) {
     showToast("Не удалось скопировать");
   }

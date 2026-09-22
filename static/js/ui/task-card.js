@@ -48,27 +48,31 @@ export function renderCard(task) {
         ? "due-soon"
         : ""
     : null;
-  const dueHtml = task.due_date
-    ? `<span class="card-due ${dueClass}">${formatDate(task.due_date)}</span>`
+  // Время: на карточке показываем справа, если есть учтённое время
+  // или идёт таймер — в футере, после распорки .spacer.
+  const timeHtml = task.time_spent_seconds > 0 || task.timer_running
+    ? `<span class="card-time${task.timer_running ? " timer-running" : ""}" title="${escapeHtml(task.timer_running ? "Идёт таймер" : `Затрачено: ${formatDuration(task.time_spent_seconds)}`)}">${ICONS.timer}<span>${formatDurationShort(task.time_spent_seconds)}</span></span>`
     : "";
 
-  // Время: показываем на карточке, если есть учтённое время или идёт таймер
-  const timeMeta = task.time_spent_seconds > 0 || task.timer_running
-    ? `<span class="mini-meta${task.timer_running ? " timer-running" : ""}" title="${escapeHtml(task.timer_running ? "Идёт таймер" : `Затрачено: ${formatDuration(task.time_spent_seconds)}`)}">${ICONS.timer}<span>${formatDurationShort(task.time_spent_seconds)}</span></span>`
+  // Срок — отдельной строкой под заголовком/тегами, время уходит вправо.
+  const dueHtml = task.due_date
+    ? `<div class="card-due-row">
+         <span class="card-due ${dueClass}"><span class="card-due-label">Срок:</span> ${formatDate(task.due_date)}</span>
+       </div>`
     : "";
 
   card.innerHTML = `
     <div class="card-title">${escapeHtml(task.title)}</div>
     ${tagsHtml}
+    ${dueHtml}
     <div class="card-footer">
       <span class="priority-dot ${task.priority}"></span>
       <span class="priority-label">${PRIORITY_LABEL[task.priority] || task.priority}</span>
-      ${dueHtml}
       <span class="spacer"></span>
       ${task.subtasks_total ? `<span class="mini-meta">${ICONS.subtasks}<span>${task.subtasks_done}/${task.subtasks_total}</span></span>` : ""}
       ${task.comments_count ? `<span class="mini-meta">${ICONS.comment}<span>${task.comments_count}</span></span>` : ""}
       ${task.attachments_count ? `<span class="mini-meta">${ICONS.attachment}<span>${task.attachments_count}</span></span>` : ""}
-      ${timeMeta}
+      ${timeHtml}
       ${assigneeHtml}
     </div>
   `;

@@ -20,9 +20,19 @@ export function openBulkMoveForTask(taskId) {
 }
 
 async function openBulkMoveModal() {
+  const single = !!currentBulkTaskId;
+  // Одиночный перенос и массовый — разные сценарии, поэтому заголовок,
+  // подсказка и состав полей отличаются: в одиночном тег не нужен.
+  byId("bm-title").textContent = single ? "Перенос на другую доску" : "Массовый перенос по тегу";
+  byId("bm-hint").textContent = single
+    ? "Выберите доску, на которую перенести эту задачу. Колонка — необязательно."
+    : "Переносятся все задачи с выбранным тегом. Если колонка не выбрана — задачи раскладываются по колонкам целевой доски с теми же названиями.";
+  byId("bm-tag-field").classList.toggle("hidden", single);
+  byId("bm-execute-btn").textContent = single ? "Перенести задачу" : "Перенести задачи";
+
   populateTagSelect();
   populateBoardSelect();
-  byId("bm-tag").disabled = !!currentBulkTaskId;
+  byId("bm-tag").disabled = single;
   showModal("bulk-move-modal", () => { currentBulkTaskId = null; });
   byId("bm-execute-btn").onclick = executeBulkMove;
   byId("bm-board").onchange = populateColumnSelect;
@@ -124,9 +134,9 @@ async function executeBulkMove() {
   try {
     const result = await API.post("/api/tasks/bulk-move", payload);
     if (currentBulkTaskId) {
-      showToast(`Задача перенесена (${result.moved})`);
+      showToast(result.moved ? "Задача перенесена" : "Задача не найдена на этой доске");
     } else {
-      showToast(`Перенесено задач: ${result.moved}`);
+      showToast(result.moved ? `Перенесено задач: ${result.moved}` : "Задач с таким тегом не найдено");
     }
     currentBulkTaskId = null;
     hideModal("bulk-move-modal");
