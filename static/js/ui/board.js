@@ -82,7 +82,7 @@ function renderColumn(col) {
   const list = document.createElement("div");
   list.className = "task-list";
   list.dataset.columnId = col.id;
-visibleTasks.forEach(t => list.appendChild(renderCard(t)));
+  visibleTasks.forEach(t => list.appendChild(renderCard(t)));
   attachDropZone(list);
   wrap.appendChild(list);
 

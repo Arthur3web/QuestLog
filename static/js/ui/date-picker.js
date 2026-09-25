@@ -51,13 +51,15 @@ function ensurePopup() {
   popup = document.createElement("div");
   popup.id = "date-picker-popup";
   popup.className = "date-picker-popup hidden";
+  popup.setAttribute("role", "dialog");
+  popup.setAttribute("aria-label", "Выбор даты");
   popup.innerHTML = `
     <div class="dp-head">
       <button type="button" class="dp-nav" data-dp="prev" title="Предыдущий месяц">${ICONS.chevronLeft}</button>
       <span class="dp-label"></span>
       <button type="button" class="dp-nav" data-dp="next" title="Следующий месяц">${ICONS.chevronRight}</button>
     </div>
-    <div class="dp-grid"></div>
+    <div class="dp-grid" role="grid" aria-label="Календарь"></div>
     <div class="dp-foot">
       <button type="button" class="dp-link" data-dp="clear">Очистить</button>
       <button type="button" class="dp-link" data-dp="today">Сегодня</button>
@@ -65,12 +67,28 @@ function ensurePopup() {
   `;
   document.body.appendChild(popup);
 
+  popup.addEventListener("keydown", (e) => {
+    if (!activeInput || e.key === "Escape") return;
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
+    e.preventDefault();
+    const current = e.target.closest(".dp-day");
+    if (!current) return;
+    const date = parseKey(current.dataset.key);
+    if (!date) return;
+    const delta = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" ? -7 : 7;
+    date.setDate(date.getDate() + delta);
+    const key = toKey(date);
+    viewDate = new Date(date.getFullYear(), date.getMonth(), 1);
+    renderGrid();
+    popup.querySelector(`[data-key="${key}"]`)?.focus();
+  });
+
   popup.addEventListener("click", (e) => {
     const nav = e.target.closest("[data-dp]");
     if (nav) {
       const action = nav.dataset.dp;
-      if (action === "prev") { viewDate.setMonth(viewDate.getMonth() - 1); renderGrid(); }
-      else if (action === "next") { viewDate.setMonth(viewDate.getMonth() + 1); renderGrid(); }
+      if (action === "prev") { viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1); renderGrid(); }
+      else if (action === "next") { viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1); renderGrid(); }
       else if (action === "clear") { commitValue(""); }
       else if (action === "today") { commitValue(toKey(new Date())); }
       return;
@@ -126,6 +144,12 @@ function renderGrid() {
     if (key === selectedKey) cell.classList.add("selected");
     cell.dataset.key = key;
     cell.textContent = d.getDate();
+    cell.setAttribute("role", "gridcell");
+    cell.setAttribute("aria-label", d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }));
+    if (key === selectedKey) cell.setAttribute("aria-selected", "true");
+    if (key === todayKey) cell.setAttribute("aria-current", "date");
+    if (key === selectedKey || key === todayKey) cell.tabIndex = 0;
+    else cell.tabIndex = -1;
     grid.appendChild(cell);
   }
 }
@@ -153,10 +177,17 @@ export function openDatePicker(/** @type {HTMLInputElement} */ input) {
   renderGrid();
   positionPopup();
   input.classList.add("dp-active");
+  input.setAttribute("aria-expanded", "true");
+  input.setAttribute("aria-controls", "date-picker-popup");
+  const focusKey = input.value || toKey(new Date());
+  requestAnimationFrame(() => popup.querySelector(`[data-key="${focusKey}"]`)?.focus());
 }
 
 export function closePicker() {
-  if (activeInput) activeInput.classList.remove("dp-active");
+  if (activeInput) {
+    activeInput.classList.remove("dp-active");
+    activeInput.setAttribute("aria-expanded", "false");
+  }
   if (popup) popup.classList.add("hidden");
   activeInput = null;
 }
@@ -184,7 +215,11 @@ export function attachDatePicker(/** @type {HTMLInputElement} */ input) {
   input.type = "text";
   input.autocomplete = "off";
   input.readOnly = true;
-  input.placeholder = input.placeholder || "ГГГГ-ММ-ДД";
+  input.placeholder = input.placeholder || "Выберите дату";
+  // Подпись поля не дублируем: у обоих полей (модалка задачи, контекстное
+  // меню) уже есть видимый <label> — «Срок».
+  input.setAttribute("aria-haspopup", "dialog");
+  input.setAttribute("aria-expanded", "false");
 
   const wrap = input.parentElement;
   if (wrap && !wrap.querySelector(".dp-toggle")) {
@@ -220,7 +255,8 @@ export function attachDatePicker(/** @type {HTMLInputElement} */ input) {
       e.preventDefault();
       openDatePicker(input);
     }
-    // Escape обрабатывается глобальным обработчиком в bindDatePickers().
+    // Стрелки внутри открытого попапа обрабатывает сам попап (ensurePopup):
+    // при открытии фокус уходит в сетку дней, поэтому ветка на input была дублем.
   });
 }
 

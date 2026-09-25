@@ -320,6 +320,10 @@ body {
 .identity-field select:hover { border-color: var(--accent); }
 .identity-field select option { background: var(--surface); color: var(--text); }
 
+.calendar-day-actions { padding: 0 0 12px; }
+.calendar-day-actions .btn-secondary { width: 100%; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
 /* ============================================================
    Board / columns
    ============================================================ */

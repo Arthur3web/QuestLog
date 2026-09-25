@@ -5,10 +5,13 @@
 
 import { byId, escapeHtml } from "../core/dom.js";
 import { formatDate, toDateKey, isOverdue, isDueSoon, daysUntil } from "../core/format.js";
-import { state } from "../domain/store.js";
+import { state, currentBoardId, currentUserId } from "../domain/store.js";
 import { PRIORITY_ORDER } from "../core/config.js";
 import { isModalOpen } from "../core/modal.js";
 import { openTaskModal } from "./task-modal.js";
+import { API } from "../core/api.js";
+import { loadState } from "../domain/state-loader.js";
+import { showToast } from "../core/toast.js";
 
 let calendarOpen = false;
 let calendarViewDate = new Date(); // отображаемый месяц
@@ -202,6 +205,16 @@ export function bindCalendar() {
     else open();
   });
   byId("calendar-close-btn").addEventListener("click", close);
+  byId("calendar-add-task").addEventListener("click", async () => {
+    const column = state.columns.find((c) => !c.is_done_state) || state.columns[0];
+    if (!column) return;
+    try {
+      const task = await API.post("/api/tasks", { board_id: currentBoardId, column_id: column.id, title: "Новая задача", assignee_id: currentUserId, due_date: calendarSelectedDate });
+      await loadState();
+      close();
+      await openTaskModal(task.id, { selectTitle: true, isNew: true });
+    } catch (e) { showToast("Не удалось создать задачу"); }
+  });
   byId("calendar-overlay").addEventListener("click", close);
 
   // Фильтр списка задач дня

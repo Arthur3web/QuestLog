@@ -47,6 +47,17 @@ def now_iso():
     return datetime.datetime.now().isoformat(timespec="seconds")
 
 
+def valid_due_date(value):
+    value = (value or "").strip()
+    if not value:
+        return ""
+    try:
+        datetime.date.fromisoformat(value)
+    except ValueError:
+        return None
+    return value
+
+
 # ============================================================
 # DB helpers
 # ============================================================
@@ -426,6 +437,9 @@ def create_task():
     title = (data.get("title") or "").strip()
     if not board_id or not column_id or not title:
         return jsonify({"error": "board_id, column_id, title обязательны"}), 400
+    due_date = valid_due_date(data.get("due_date", ""))
+    if due_date is None:
+        return jsonify({"error": "Некорректная дата срока"}), 400
 
     db = get_db()
     column = db.execute(
@@ -445,7 +459,7 @@ def create_task():
         (
             board_id, column_id, title, data.get("description", ""),
             data.get("priority", "normal"), data.get("assignee_id"),
-            tags, data.get("due_date", ""), max_pos + 1, ts, ts,
+            tags, due_date, max_pos + 1, ts, ts,
         ),
     )
     db.commit()
@@ -500,6 +514,11 @@ def update_task(task_id):
             return jsonify({"error": "Название задачи не может быть пустым"}), 400
     if "priority" in fields and fields["priority"] not in ("high", "medium", "normal", "low"):
         return jsonify({"error": "Неизвестный приоритет"}), 400
+    if "due_date" in fields:
+        checked_due = valid_due_date(fields["due_date"])
+        if checked_due is None:
+            return jsonify({"error": "Некорректная дата срока"}), 400
+        fields["due_date"] = checked_due
     if "assignee_id" in data:
         fields["assignee_id"] = data["assignee_id"]
     if "tags" in data:
