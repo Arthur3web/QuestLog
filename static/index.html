@@ -7,10 +7,17 @@
 <link rel="stylesheet" href="/static/style.css">
 <script>
   // Применяем сохранённую тему до отрисовки, чтобы не было мигания темы по умолчанию.
+  // Ключ должен совпадать с LS_KEYS.theme в static/js/core/config.js.
   (function () {
     try {
+      var saved = localStorage.getItem("tb_theme");
+      // Значение проверяем только на форму: неизвестная тема оставит токены
+      // из :root, то есть выглядеть будет как тема по умолчанию.
+      if (!saved || !/^[a-z][a-z0-9-]{0,23}$/.test(saved)) saved = "retro";
+      document.documentElement.setAttribute("data-theme", saved);
+    } catch (e) {
       document.documentElement.setAttribute("data-theme", "retro");
-    } catch (e) {}
+    }
   })();
 
   // ----------------------------------------------------------
@@ -117,9 +124,11 @@
       <select id="current-user-select"></select>
     </label>
     <button id="manage-people-btn" class="icon-btn" title="Участники">Участники</button>
-    <!-- Вторая тема ещё не добавлена — селектор заблокирован, чтобы не сбивать тему -->
-    <select id="theme-select" class="theme-select" title="Тема оформления (пока доступна только одна)" disabled>
+    <!-- Тема оформления: список тем задан здесь, а оформление каждой —
+         в style.css (html[data-theme="..."]). Переключение — ui/theme.js. -->
+    <select id="theme-select" class="theme-select" title="Тема оформления">
       <option value="retro" data-icon-text="theme">Ретро</option>
+      <option value="poster" data-icon-text="themePoster">Плакат</option>
     </select>
   </div>
 </footer>

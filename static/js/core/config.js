@@ -28,6 +28,7 @@ export const TAG_PRESETS = [
 export const LS_KEYS = {
   boardId: "tb_board_id",
   currentUser: "tb_current_user",
+  theme: "tb_theme",
 };
 
 // Текст для новых сущностей и плейсхолдеры пустых списков

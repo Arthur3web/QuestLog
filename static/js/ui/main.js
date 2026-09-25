@@ -32,9 +32,14 @@ import { bindCalendar } from "./calendar.js";
 import { bindPeople } from "./people.js";
 import { bindBulkMove } from "./bulk-move.js";
 import { attachDatePicker, bindDatePickers } from "./date-picker.js";
+import { applyTheme, bindTheme, currentTheme } from "./theme.js";
 
 async function boot() {
   renderIcons();
+  // Тему применяет ещё inline-скрипт в index.html (чтобы не мигало), но
+  // здесь повторяем: если в localStorage лежало устаревшее значение темы,
+  // атрибут нормализуется к доступной теме.
+  applyTheme(currentTheme());
   try {
     await fetchBoards();
   } catch (e) {
@@ -116,6 +121,7 @@ function bindGlobalEvents() {
   bindPeople();
   bindBoards();
   bindBulkMove();
+  bindTheme();
 
   // Тематический выбор даты вместо нативного календаря браузера.
   bindDatePickers();

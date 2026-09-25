@@ -18,6 +18,7 @@ export const ICONS = {
 
 export const ICON_TEXT = {
   theme: "🕹️",
+  themePoster: "🎴",
   priorityHigh: "🔴",
   priorityMedium: "🟠",
   priorityNormal: "⚪",
