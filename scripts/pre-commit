@@ -19,28 +19,49 @@ if [ -z "$changed" ]; then
   exit 0
 fi
 
-# Ищем Python. git-хук запускается через sh из Git for Windows, и в нём
-# PATH может не содержать ни python, ни launcher py, поэтому помимо PATH
-# проверяем стандартные места установки (в т.ч. Windows-лаунчер py.exe).
+# Ищем Python. git-хук запускается через sh из Git for Windows, где PATH
+# может не содержать ни python, ни лаунчер py, поэтому помимо PATH
+# проверяем venv проекта и стандартные места установки.
+#
+# Важно: заглушки Microsoft Store лежат в PATH как python3.exe, но сами
+# ничего не запускают — только предлагают установить Python. Поэтому
+# кандидат берём лишь после проверки, что он действительно работает.
 find_python() {
-  for cand in python3 python py; do
-    if command -v "$cand" >/dev/null 2>&1; then
+  for cand in "./.venv/Scripts/python.exe" "./.venv/bin/python"; do
+    if [ -x "$cand" ] && "$cand" -c "" >/dev/null 2>&1; then
       echo "$cand"
       return 0
     fi
   done
+
+  for cand in python python3 py; do
+    resolved=$(command -v "$cand" 2>/dev/null) || continue
+    case "$resolved" in *WindowsApps*) continue ;; esac
+    if "$resolved" -c "" >/dev/null 2>&1; then
+      echo "$resolved"
+      return 0
+    fi
+  done
+
   for cand in \
     "/c/Windows/py.exe" \
     "$LOCALAPPDATA/Programs/Python/Python312/python.exe" \
     "$LOCALAPPDATA/Programs/Python/Python311/python.exe" \
-    "$LOCALAPPDATA/Programs/Python/Python310/python.exe" \
-    /c/Python3*/python.exe
+    "$LOCALAPPDATA/Programs/Python/Python310/python.exe"
   do
-    if [ -x "$cand" ]; then
+    if [ -x "$cand" ] && "$cand" -c "" >/dev/null 2>&1; then
       echo "$cand"
       return 0
     fi
   done
+
+  for cand in /c/Python3*/python.exe; do
+    if [ -x "$cand" ] && "$cand" -c "" >/dev/null 2>&1; then
+      echo "$cand"
+      return 0
+    fi
+  done
+
   return 1
 }
 
