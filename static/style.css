@@ -938,7 +938,8 @@ body {
 }
 .lightbox-content img {
   max-width: 90vw;
-  max-height: 90vh;
+  /* 82vh, а не 90vh: над превью — строка с именем файла */
+  max-height: 82vh;
   border-radius: var(--radius);
   box-shadow: 0 8px 40px rgba(0,0,0,0.5);
 }
@@ -965,6 +966,43 @@ body {
 }
 .lightbox-close .icon { width: 14px; height: 14px; }
 
+/* Над превью — только имя файла: скачивание живёт в списке вложений,
+   внутри лайтбокса отдельной ссылки нет. */
+.lightbox-head { margin-bottom: 8px; }
+.lightbox-name {
+  display: block;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* PDF показываем во фрейме, текст — моноширинным блоком. display здесь
+   не задаём: иначе сломалось бы скрытие через атрибут hidden. */
+.lightbox-frame {
+  width: 80vw;
+  height: 78vh;
+  border: var(--border-width) solid var(--border);
+  background: var(--surface);
+}
+.lightbox-text {
+  box-sizing: border-box;
+  width: 80vw;
+  max-height: 78vh;
+  overflow: auto;
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--surface-sunken);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .upload-btn {
   display: inline-block;
   border: 1px dashed var(--border-strong);
@@ -976,6 +1014,15 @@ body {
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 .upload-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+
+/* Перетаскивание файлов в окно задачи: подсвечиваем блок «Вложения» */
+.tm-section.drop-active {
+  outline: 2px dashed var(--accent);
+  outline-offset: 6px;
+  background: var(--accent-glow);
+}
+.attachment-drop-hint { display: none; margin: 8px 0 0; color: var(--accent); }
+.tm-section.drop-active .attachment-drop-hint { display: block; }
 
 .comment-item {
   background: var(--surface-sunken);

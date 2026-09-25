@@ -265,15 +265,84 @@ export function updateSubtaskAddState() {
 // ------------------------------------------------------------
 // Вложения
 // ------------------------------------------------------------
-function closeLightbox() {
-  const lightbox = byId("attachment-lightbox");
-  if (!lightbox) return;
-  lightbox.classList.add("hidden");
-  byId("lightbox-image").removeAttribute("src");
+// Что можно показать прямо в лайтбоксе. Картинки — в <img> (в этом контексте
+// SVG не выполняет свой скрипт), PDF — во фрейме, текстовые файлы — в <pre>.
+const IMAGE_PREVIEW_RE = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i;
+const PDF_PREVIEW_RE = /\.pdf$/i;
+const TEXT_PREVIEW_RE = /\.(txt|md|markdown|log|csv|tsv|json|xml|ya?ml|ini|cfg|conf|toml|env|py|js|mjs|cjs|ts|tsx|jsx|css|html?|sh|bash|bat|cmd|ps1|sql|rb|go|rs|java|kt|c|h|cpp|hpp|cs|php|vue|gitignore|editorconfig)$/i;
+// Текст больше этого размера не тянем в браузер — предлагаем скачать файл.
+const MAX_TEXT_PREVIEW_BYTES = 256 * 1024;
+
+function previewKind(filename) {
+  if (IMAGE_PREVIEW_RE.test(filename)) return "image";
+  if (PDF_PREVIEW_RE.test(filename)) return "pdf";
+  if (TEXT_PREVIEW_RE.test(filename)) return "text";
+  return null;
 }
 
-function isImageFile(filename) {
-  return /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(filename);
+function resetLightboxMedia() {
+  const image = byId("lightbox-image");
+  const frame = byId("lightbox-frame");
+  const text = byId("lightbox-text");
+  image.removeAttribute("src");
+  frame.removeAttribute("src");
+  text.textContent = "";
+  image.hidden = true;
+  frame.hidden = true;
+  text.hidden = true;
+}
+
+function closeLightbox() {
+  const lightbox = byId("attachment-lightbox");
+  if (!lightbox || lightbox.classList.contains("hidden")) return;
+  resetLightboxMedia();
+  // Лайтбокс живёт в том же стеке модалок: Escape закрывает именно его,
+  // а не карточку задачи под ним (иначе потерялись бы несохранённые правки).
+  closeOverlay(lightbox);
+}
+
+async function openLightbox(attachment) {
+  const kind = previewKind(attachment.filename);
+  if (!kind) return false;
+  if (kind === "text" && attachment.size_bytes > MAX_TEXT_PREVIEW_BYTES) {
+    showToast("Файл слишком большой для предпросмотра — скачиваем его");
+    return false;
+  }
+  const url = `/api/attachments/${attachment.id}/download`;
+  resetLightboxMedia();
+  byId("lightbox-name").textContent = attachment.filename;
+
+  const text = byId("lightbox-text");
+  if (kind === "image") {
+    const image = byId("lightbox-image");
+    image.src = url;
+    image.alt = attachment.filename;
+    image.hidden = false;
+  } else if (kind === "pdf") {
+    const frame = byId("lightbox-frame");
+    // Фрейму нужен ответ inline: с Content-Disposition: attachment браузер
+    // скачивает PDF вместо показа.
+    frame.src = `${url}?inline=1`;
+    frame.hidden = false;
+  } else {
+    text.textContent = "Загрузка…";
+    text.hidden = false;
+  }
+  openOverlay("attachment-lightbox");
+
+  if (kind === "text") {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(String(res.status));
+      // textContent, а не innerHTML: содержимое файла не должно стать HTML.
+      text.textContent = await res.text();
+    } catch (e) {
+      closeLightbox();
+      showToast("Не удалось открыть файл");
+      return false;
+    }
+  }
+  return true;
 }
 
 function renderAttachments(attachments) {
@@ -287,8 +356,8 @@ function renderAttachments(attachments) {
     const downloadUrl = `/api/attachments/${a.id}/download`;
     const row = document.createElement("div");
     row.className = "attachment-item";
-    const isImage = isImageFile(a.filename);
-    const linkTitle = isImage ? "Открыть превью" : "Скачать";
+    const kind = previewKind(a.filename);
+    const linkTitle = kind ? "Открыть превью" : "Скачать";
     row.innerHTML = `
       <a href="${downloadUrl}" title="${linkTitle}">${escapeHtml(a.filename)}</a>
       <div class="attachment-meta">
@@ -297,20 +366,19 @@ function renderAttachments(attachments) {
       </div>
     `;
     const link = row.querySelector("a");
-    if (isImage) {
-      link.addEventListener("click", e => {
-        e.preventDefault();
-        const img = byId("lightbox-image");
-        img.src = downloadUrl;
-        img.alt = a.filename;
-        byId("attachment-lightbox").classList.remove("hidden");
-      });
-    } else {
-      link.addEventListener("click", e => {
-        e.preventDefault();
+    link.addEventListener("click", e => {
+      e.preventDefault();
+      if (!kind) {
         window.open(downloadUrl, "_blank");
+        return;
+      }
+      // Кнопки «Скачать» в превью нет, поэтому если его открыть не удалось
+      // (например, текст оказался слишком большим), отдаём файл напрямую —
+      // иначе клик по имени не делал бы ничего.
+      openLightbox(a).then(shown => {
+        if (!shown) window.open(downloadUrl, "_blank");
       });
-    }
+    });
     row.querySelector(".remove-btn").onclick = async () => {
       const taskId = openTaskId;
       if (!taskId) return;
@@ -323,17 +391,54 @@ function renderAttachments(attachments) {
   });
 }
 
-export async function uploadAttachmentFromModal(file, input) {
-  if (!file || !openTaskId) return;
+export async function uploadAttachmentsFromModal(files) {
   const taskId = openTaskId;
-  const fd = new FormData();
-  fd.append("file", file);
-  const res = await API.upload(`/api/tasks/${taskId}/attachments`, fd);
-  if (!res.ok) { showToast("Не удалось загрузить файл"); return; }
+  const list = Array.from(files || []).filter(f => f && f.name);
+  if (!taskId || !list.length) return;
+  let failed = 0;
+  for (const file of list) {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await API.upload(`/api/tasks/${taskId}/attachments`, fd);
+    if (!res.ok) failed += 1;
+  }
   const task = await API.get(`/api/tasks/${taskId}`);
   renderAttachments(task.attachments);
   await loadState();
-  input.value = "";
+  if (failed === list.length) showToast("Не удалось загрузить файл");
+  else if (failed) showToast(`Не удалось загрузить файлов: ${failed}`);
+}
+
+// Перетаскивание файлов: цель — вся модалка задачи, подсветка — блок вложений.
+function bindAttachmentDrop() {
+  const overlay = byId("task-modal");
+  const section = byId("tm-attachments-section");
+  if (!overlay || !section) return;
+
+  const hasFiles = e => Array.from(e.dataTransfer ? e.dataTransfer.types : []).includes("Files");
+
+  // Иначе браузер открывает перетащенный файл вместо страницы. Гасим только
+  // файлы — перетаскиванию карточек по доске это не мешает.
+  document.addEventListener("dragover", e => { if (hasFiles(e)) e.preventDefault(); });
+  document.addEventListener("drop", e => { if (hasFiles(e)) e.preventDefault(); });
+
+  overlay.addEventListener("dragover", e => {
+    if (!openTaskId || !hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    section.classList.add("drop-active");
+  });
+  overlay.addEventListener("dragleave", e => {
+    // dragleave приходит и при переходе между элементами внутри окна,
+    // поэтому снимаем подсветку, только когда курсор ушёл из модалки.
+    if (!overlay.contains(e.relatedTarget)) section.classList.remove("drop-active");
+  });
+  overlay.addEventListener("drop", async e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    section.classList.remove("drop-active");
+    await uploadAttachmentsFromModal(e.dataTransfer.files);
+  });
 }
 
 // ------------------------------------------------------------
@@ -614,10 +719,13 @@ export function bindTaskModal() {
   // Таймер
   byId("tm-timer-toggle").addEventListener("click", toggleTimerFromModal);
 
-  // Вложения
+  // Вложения: выбор в диалоге и перетаскивание файлов в окно задачи
   byId("tm-file-input").addEventListener("change", e => {
-    uploadAttachmentFromModal(e.target.files[0], e.target);
+    const files = Array.from(e.target.files);
+    e.target.value = "";
+    uploadAttachmentsFromModal(files);
   });
+  bindAttachmentDrop();
 
   // Превью вложений — лайтбокс
   byId("lightbox-close").innerHTML = ICONS.close;
@@ -626,11 +734,6 @@ export function bindTaskModal() {
   });
   byId("attachment-lightbox").addEventListener("click", e => {
     if (e.target === byId("attachment-lightbox")) {
-      closeLightbox();
-    }
-  });
-  document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && !byId("attachment-lightbox").classList.contains("hidden")) {
       closeLightbox();
     }
   });

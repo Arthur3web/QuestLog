@@ -195,13 +195,15 @@
         </div>
       </section>
 
-      <section class="tm-section">
+      <section class="tm-section" id="tm-attachments-section">
         <h3>Вложения</h3>
         <div id="tm-attachments" class="attachment-list"></div>
         <label class="upload-btn">
           + прикрепить файл
-          <input id="tm-file-input" type="file" hidden>
+          <input id="tm-file-input" type="file" multiple hidden>
         </label>
+        <!-- Появляется только во время перетаскивания файлов в окно задачи -->
+        <p class="attachment-drop-hint hint-text">Отпустите файлы, чтобы прикрепить их к задаче</p>
       </section>
 
       <section class="tm-section">
@@ -315,11 +317,16 @@
   </div>
 </div>
 
-<!-- Attachment preview lightbox -->
+<!-- Attachment preview lightbox: картинки, PDF и текстовые файлы -->
 <div id="attachment-lightbox" class="lightbox-overlay hidden">
   <div class="lightbox-content">
     <button class="lightbox-close" id="lightbox-close" title="Закрыть"></button>
-    <img id="lightbox-image" src="" alt="Превью">
+    <div class="lightbox-head">
+      <span id="lightbox-name" class="lightbox-name"></span>
+    </div>
+    <img id="lightbox-image" src="" alt="Превью" hidden>
+    <iframe id="lightbox-frame" class="lightbox-frame" title="Просмотр документа" hidden></iframe>
+    <pre id="lightbox-text" class="lightbox-text" hidden></pre>
   </div>
 </div>
 

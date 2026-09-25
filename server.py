@@ -763,6 +763,13 @@ def upload_attachment(task_id):
     return jsonify(attachment_dict(row)), 201
 
 
+# Типы, которые разрешено отдавать браузеру для показа в лайтбоксе
+# (?inline=1), а не только скачиванием. HTML и SVG сюда не входят намеренно:
+# встроенные в страницу приложения, они выполнили бы свой скрипт на том же
+# origin и получили бы доступ к API.
+INLINE_PREVIEW_MIMES = {"application/pdf"}
+
+
 @app.route("/api/attachments/<int:att_id>/download")
 def download_attachment(att_id):
     db = get_db()
@@ -770,8 +777,11 @@ def download_attachment(att_id):
     if not row:
         abort(404)
     mime = mimetypes.guess_type(row["filename"])[0] or "application/octet-stream"
+    # ?inline=1 — превью в лайтбоксе: браузер рисует PDF во фрейме только при
+    # Content-Disposition: inline, с attachment он молча скачивает файл.
+    inline_preview = request.args.get("inline") == "1" and mime in INLINE_PREVIEW_MIMES
     return send_from_directory(
-        ATTACH_DIR, row["stored_name"], as_attachment=True,
+        ATTACH_DIR, row["stored_name"], as_attachment=not inline_preview,
         download_name=row["filename"], mimetype=mime,
     )
 
