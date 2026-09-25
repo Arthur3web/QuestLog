@@ -1,0 +1,17 @@
+# ============================================================
+# Переводы строк.
+#
+# Текстовые файлы держим в LF: shell-скрипты (scripts/pre-commit,
+# run.sh) с CRLF не запускаются через /bin/sh на Linux, а git с
+# core.autocrlf=true постоянно предупреждает про CRLF↔LF.
+# ============================================================
+
+*.py   text eol=lf
+*.js   text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.sh   text eol=lf
+scripts/pre-commit text eol=lf
+
+# .bat-файлы Windows читает как CRLF
+*.bat text eol=crlf
