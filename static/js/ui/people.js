@@ -6,7 +6,8 @@ import { API } from "../core/api.js";
 import { byId, escapeHtml, initials } from "../core/dom.js";
 import { ICONS } from "../core/icons.js";
 import { state, currentUserId, onlyMine, setCurrentUserId } from "../domain/store.js";
-import { showModal } from "../core/modal.js";
+import { showModal, confirmDialog } from "../core/modal.js";
+import { showToast } from "../core/toast.js";
 import { loadState } from "../domain/state-loader.js";
 import { renderBoard } from "./board.js";
 
@@ -28,8 +29,17 @@ function renderPeopleList() {
       <button class="remove-btn" title="Удалить">${ICONS.close}</button>
     `;
     row.querySelector(".remove-btn").addEventListener("click", async () => {
-      const res = await API.del(`/api/users/${u.id}`);
-      if (res && res.error) { return; }
+      const ok = await confirmDialog(
+        `Удалить участника «${u.name}»? Его задачи останутся без исполнителя.`,
+        { title: "Удалить участника" }
+      );
+      if (!ok) return;
+      try {
+        await API.del(`/api/users/${u.id}`);
+      } catch (e) {
+        showToast("Не удалось удалить участника");
+        return;
+      }
       await loadState();
       renderPeopleList();
     });

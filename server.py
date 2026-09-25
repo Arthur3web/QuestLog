@@ -428,6 +428,11 @@ def create_task():
         return jsonify({"error": "board_id, column_id, title обязательны"}), 400
 
     db = get_db()
+    column = db.execute(
+        "SELECT board_id FROM columns WHERE id=?", (column_id,)
+    ).fetchone()
+    if not column or column["board_id"] != board_id:
+        return jsonify({"error": "Колонка не принадлежит указанной доске"}), 400
     max_pos = db.execute(
         "SELECT COALESCE(MAX(position), -1) m FROM tasks WHERE column_id=?", (column_id,)
     ).fetchone()["m"]
@@ -489,6 +494,12 @@ def update_task(task_id):
     for key in ("title", "description", "priority", "due_date"):
         if key in data:
             fields[key] = data[key]
+    if "title" in fields:
+        fields["title"] = (fields["title"] or "").strip()
+        if not fields["title"]:
+            return jsonify({"error": "Название задачи не может быть пустым"}), 400
+    if "priority" in fields and fields["priority"] not in ("high", "medium", "normal", "low"):
+        return jsonify({"error": "Неизвестный приоритет"}), 400
     if "assignee_id" in data:
         fields["assignee_id"] = data["assignee_id"]
     if "tags" in data:
@@ -527,7 +538,14 @@ def move_task(task_id):
     task = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
     if not task:
         abort(404)
+    target_column = db.execute(
+        "SELECT board_id FROM columns WHERE id=?", (new_column_id,)
+    ).fetchone()
+    if not target_column:
+        return jsonify({"error": "Колонка не найдена"}), 404
     old_column_id = task["column_id"]
+    old_board_id = task["board_id"]
+    new_board_id = target_column["board_id"]
 
     # Pull ordered id list of the destination column, excluding the moving task
     dest_tasks = [
@@ -539,11 +557,14 @@ def move_task(task_id):
     new_index = max(0, min(new_index, len(dest_tasks)))
     dest_tasks.insert(new_index, task_id)
 
-    db.execute("UPDATE tasks SET column_id=? WHERE id=?", (new_column_id, task_id))
+    db.execute(
+        "UPDATE tasks SET board_id=?, column_id=? WHERE id=?",
+        (new_board_id, new_column_id, task_id),
+    )
     for i, tid in enumerate(dest_tasks):
         db.execute("UPDATE tasks SET position=? WHERE id=?", (i, tid))
 
-    if old_column_id != new_column_id:
+    if old_column_id != new_column_id or old_board_id != new_board_id:
         # reindex the source column to close the gap
         src_tasks = [
             r["id"] for r in db.execute(

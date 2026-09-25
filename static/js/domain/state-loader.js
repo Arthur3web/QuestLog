@@ -33,7 +33,12 @@ export function onStateLoaded(fn) {
 
 export async function loadState() {
   setState(await API.get(`/api/state?board_id=${currentBoardId}`));
-  if (!currentUserId && state.users.length) setCurrentUserId(state.users[0].id);
+  if (
+    (!currentUserId || !state.users.some(user => user.id === currentUserId)) &&
+    state.users.length
+  ) {
+    setCurrentUserId(state.users[0].id);
+  }
   renderIdentitySelect();
   afterLoadCallbacks.forEach(fn => fn());
   renderBoard();

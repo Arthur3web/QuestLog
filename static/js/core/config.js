@@ -11,6 +11,9 @@ export const PRIORITY_LABEL = {
   low: "Низкий",
 };
 
+// Порядок важности — для сортировки списков (от горячего к спокойному)
+export const PRIORITY_ORDER = ["high", "medium", "normal", "low"];
+
 // Готовый набор тегов для быстрого клика — типичные категории личных задач
 export const TAG_PRESETS = [
   "Срочно",

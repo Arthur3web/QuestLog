@@ -22,16 +22,6 @@ export function renderBoard() {
   state.columns.forEach(col => board.appendChild(renderColumn(col)));
   board.appendChild(renderAddColumn());
   board.scrollLeft = scrollLeft;
-
-  // Фильтр «Мои задачи» прячет задачи без исполнителя — показываем сколько,
-  // иначе кажется, что новые задачи «не сохраняются» и пропадают при переключении досок.
-  const myBtn = byId("my-tasks-btn");
-  if (myBtn) {
-    const hidden = onlyMine
-      ? state.columns.reduce((n, c) => n + c.tasks.filter(t => t.assignee_id !== currentUserId).length, 0)
-      : 0;
-    myBtn.textContent = (onlyMine && hidden > 0) ? `Мои задачи · скрыто ${hidden}` : "Мои задачи";
-  }
 }
 
 function taskMatchesSearch(t) {
@@ -46,12 +36,14 @@ function renderColumn(col) {
   const wrap = document.createElement("div");
   wrap.className = "column";
 
+  const visibleTasks = col.tasks.filter(t => taskMatchesSearch(t) && (!onlyMine || t.assignee_id === currentUserId));
+
   const header = document.createElement("div");
   header.className = "column-header";
   header.innerHTML = `
     <div class="column-title-group">
       <span class="column-title" contenteditable="true" spellcheck="false">${escapeHtml(col.name)}</span>
-      <span class="column-count">${col.tasks.length}</span>
+      <span class="column-count">${visibleTasks.length}</span>
     </div>
     <div class="column-actions">
       <button class="delete-col-btn" title="Удалить колонку">${ICONS.close}</button>
@@ -76,8 +68,13 @@ function renderColumn(col) {
       { title: "Удалить колонку" }
     );
     if (!ok) return;
-    const res = await API.del(`/api/columns/${col.id}`);
-    if (res.error) { showToast(res.error); return; }
+    try {
+      await API.del(`/api/columns/${col.id}`);
+    } catch (e) {
+      // API.del бросает на ответе не 2xx; текст ошибки — JSON в message
+      showToast("Нельзя удалить колонку с задачами");
+      return;
+    }
     await loadState();
   });
   wrap.appendChild(header);
@@ -85,7 +82,7 @@ function renderColumn(col) {
   const list = document.createElement("div");
   list.className = "task-list";
   list.dataset.columnId = col.id;
-  col.tasks.filter(taskMatchesSearch).forEach(t => list.appendChild(renderCard(t)));
+visibleTasks.forEach(t => list.appendChild(renderCard(t)));
   attachDropZone(list);
   wrap.appendChild(list);
 
@@ -165,10 +162,16 @@ function attachDropZone(list) {
     e.preventDefault();
     list.classList.remove("drag-over");
     const taskId = Number(e.dataTransfer.getData("text/plain"));
+    if (!taskId || Number.isNaN(taskId)) return; // дроп мимо карточки
     const columnId = Number(list.dataset.columnId);
     const cards = [...list.querySelectorAll(".card")];
     const position = cards.findIndex(c => Number(c.dataset.taskId) === taskId);
-    await API.post(`/api/tasks/${taskId}/move`, { column_id: columnId, position });
+    try {
+      await API.post(`/api/tasks/${taskId}/move`, { column_id: columnId, position });
+    } catch (err) {
+      showToast("Не удалось переместить задачу");
+      console.error("[QuestLog] move failed:", err);
+    }
     await loadState();
   });
 }

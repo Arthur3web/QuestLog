@@ -41,7 +41,13 @@ async function boot() {
     showToast("Сервер недоступен. Запустите server.py или desktop.py.");
     return;
   }
-  if (boards.length === 0) return; // shouldn't happen, backend seeds one
+  if (boards.length === 0) {
+    // Сервер засеивает доску при первом запуске, поэтому пустой список
+    // означает проблему в БД — сообщаем, а не оставляем пустой экран.
+    showToast("Досок нет: возможно, база данных повреждена. Подробности — в консоли (F12).");
+    console.error("[QuestLog] Список досок пуст после загрузки с сервера.");
+    return;
+  }
   // Сохранённой доски нет или она исчезла — берём первую
   if (!currentBoardId || !boards.find(b => b.id === currentBoardId)) {
     setCurrentBoardId(boards[0].id);

@@ -70,6 +70,7 @@ export async function openTaskModal(taskId, { selectTitle = false, isNew = false
   renderAttachments(task.attachments);
   renderComments(task.comments);
   renderTimeTracking(task);
+  byId("tm-time-section").style.display = isNew ? "none" : "";
 
   byId("tm-subtask-input").value = "";
   updateSubtaskAddState();
@@ -107,40 +108,6 @@ export async function openTaskModal(taskId, { selectTitle = false, isNew = false
   if (selectTitle) {
     setTimeout(() => { titleInput.focus(); titleInput.select(); }, 40);
   }
-}
-
-// Модалка при любом закрытии сбрасывается к значениям по умолчанию,
-// чтобы следующий запуск не показывал данные предыдущей задачи.
-export function resetTaskModalForm() {
-  taskSaved = false;
-  byId("tm-title").value = "";
-  byId("tm-description").value = "";
-  autoGrowDescription();
-  byId("tm-priority").value = "normal";
-  byId("tm-assignee").innerHTML = `<option value="">Без исполнителя</option>`;
-  byId("tm-assignee").value = "";
-  byId("tm-due").value = "";
-  byId("tm-tags").value = "";
-  byId("tm-column").innerHTML = "";
-  byId("tm-subtasks").innerHTML = "";
-  byId("tm-subtasks-progress").textContent = "";
-  byId("tm-subtask-input").value = "";
-  updateSubtaskAddState();
-  byId("tm-attachments").innerHTML = "";
-  byId("tm-comments").innerHTML = "";
-  byId("tm-time-total").textContent = "";
-  byId("tm-time-log").innerHTML = "";
-  byId("tm-timer-display").textContent = "0с";
-  byId("tm-timer-toggle").textContent = "▶ Старт";
-  byId("tm-timer-toggle").classList.remove("timer-active");
-  byId("tm-heading").textContent = "Задача";
-  byId("tm-saved-hint").textContent = "";
-  renderTagPresets([]);
-  const saveBtn = byId("tm-save-btn");
-  if (saveBtn) saveBtn.disabled = true;
-  byId("tm-comment-text").value = "";
-  updateCommentSubmitState();
-  clearOpenTask();
 }
 
 // ------------------------------------------------------------
@@ -233,17 +200,21 @@ function renderSubtasks(subtasks) {
     // Пересчёт высоты при вводе названия.
     titleInput.addEventListener("input", () => autosizeSubtaskField(titleInput));
     checkbox.addEventListener("change", async () => {
+      const taskId = openTaskId;
+      if (!taskId) return; // модалку успели закрыть
       await API.put(`/api/subtasks/${s.id}`, { done: checkbox.checked });
-      const task = await API.get(`/api/tasks/${openTaskId}`);
+      const task = await API.get(`/api/tasks/${taskId}`);
       renderSubtasks(task.subtasks);
       await loadState();
     });
     titleInput.addEventListener("blur", async () => {
+      const taskId = openTaskId;
       const value = titleInput.value.trim();
       if (!value) { titleInput.value = s.title; return; }
       if (value === s.title) return;
+      if (!taskId) return;
       await API.put(`/api/subtasks/${s.id}`, { title: value });
-      const task = await API.get(`/api/tasks/${openTaskId}`);
+      const task = await API.get(`/api/tasks/${taskId}`);
       renderSubtasks(task.subtasks);
       await loadState();  // обновить счётчик подзадач на карточке
     });
@@ -252,13 +223,14 @@ function renderSubtasks(subtasks) {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); titleInput.blur(); }
     });
     row.querySelector(".remove-btn").addEventListener("click", async () => {
+      const taskId = openTaskId;
       const ok = await confirmDialog(
         `Удалить подзадачу «${s.title}»?`,
         { title: "Удалить подзадачу" }
       );
-      if (!ok) return;
+      if (!ok || !taskId) return;
       await API.del(`/api/subtasks/${s.id}`);
-      const task = await API.get(`/api/tasks/${openTaskId}`);
+      const task = await API.get(`/api/tasks/${taskId}`);
       renderSubtasks(task.subtasks);
       await loadState();
     });
@@ -273,10 +245,11 @@ export async function addSubtaskFromModal() {
   const input = byId("tm-subtask-input");
   const title = input.value.trim();
   if (!title || !openTaskId) return;
-  await API.post(`/api/tasks/${openTaskId}/subtasks`, { title });
+  const taskId = openTaskId;
+  await API.post(`/api/tasks/${taskId}/subtasks`, { title });
   input.value = "";
   updateSubtaskAddState();
-  const task = await API.get(`/api/tasks/${openTaskId}`);
+  const task = await API.get(`/api/tasks/${taskId}`);
   renderSubtasks(task.subtasks);
   await loadState();
   input.focus();
@@ -292,6 +265,13 @@ export function updateSubtaskAddState() {
 // ------------------------------------------------------------
 // Вложения
 // ------------------------------------------------------------
+function closeLightbox() {
+  const lightbox = byId("attachment-lightbox");
+  if (!lightbox) return;
+  lightbox.classList.add("hidden");
+  byId("lightbox-image").removeAttribute("src");
+}
+
 function isImageFile(filename) {
   return /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(filename);
 }
@@ -322,6 +302,7 @@ function renderAttachments(attachments) {
         e.preventDefault();
         const img = byId("lightbox-image");
         img.src = downloadUrl;
+        img.alt = a.filename;
         byId("attachment-lightbox").classList.remove("hidden");
       });
     } else {
@@ -331,8 +312,10 @@ function renderAttachments(attachments) {
       });
     }
     row.querySelector(".remove-btn").onclick = async () => {
+      const taskId = openTaskId;
+      if (!taskId) return;
       await API.del(`/api/attachments/${a.id}`);
-      const task = await API.get(`/api/tasks/${openTaskId}`);
+      const task = await API.get(`/api/tasks/${taskId}`);
       renderAttachments(task.attachments);
       await loadState();
     };
@@ -342,11 +325,12 @@ function renderAttachments(attachments) {
 
 export async function uploadAttachmentFromModal(file, input) {
   if (!file || !openTaskId) return;
+  const taskId = openTaskId;
   const fd = new FormData();
   fd.append("file", file);
-  const res = await API.upload(`/api/tasks/${openTaskId}/attachments`, fd);
+  const res = await API.upload(`/api/tasks/${taskId}/attachments`, fd);
   if (!res.ok) { showToast("Не удалось загрузить файл"); return; }
-  const task = await API.get(`/api/tasks/${openTaskId}`);
+  const task = await API.get(`/api/tasks/${taskId}`);
   renderAttachments(task.attachments);
   await loadState();
   input.value = "";
@@ -374,9 +358,11 @@ function renderComments(comments) {
       <div class="comment-body">${escapeHtml(c.text)}</div>
     `;
     row.querySelector(".remove-btn").onclick = async () => {
+      const taskId = openTaskId;
+      if (!taskId) return;
       await API.del(`/api/comments/${c.id}`);
-      const task = await API.get(`/api/tasks/${openTaskId}`);
-      renderComments(task.comments);
+      const task = await API.get(`/api/tasks/${taskId}`);
+      if (taskId === openTaskId) renderComments(task.comments);
       await loadState();
     };
     list.appendChild(row);
@@ -386,12 +372,15 @@ function renderComments(comments) {
 export async function submitCommentFromModal() {
   const text = byId("tm-comment-text").value.trim();
   if (!text || !openTaskId) return;
+  const taskId = openTaskId;
   const userId = Number(byId("tm-comment-author").value);
   setCurrentUserId(userId);
-  await API.post(`/api/tasks/${openTaskId}/comments`, { user_id: userId, text });
+  await API.post(`/api/tasks/${taskId}/comments`, { user_id: userId, text });
+  if (taskId !== openTaskId) return;
   byId("tm-comment-text").value = "";
   updateCommentSubmitState();
-  const task = await API.get(`/api/tasks/${openTaskId}`);
+  const task = await API.get(`/api/tasks/${taskId}`);
+  if (taskId !== openTaskId) return;
   renderComments(task.comments);
   await loadState();
 }
@@ -478,8 +467,10 @@ function renderTimeTracking(task) {
     row.querySelector(".remove-btn").addEventListener("click", async () => {
       const ok = await confirmDialog("Удалить эту запись времени?", { title: "Удалить запись" });
       if (!ok) return;
+      const taskId = openTaskId;
+      if (!taskId) return;
       await API.del(`/api/time-entries/${e.id}`);
-      const fresh = await API.get(`/api/tasks/${openTaskId}`);
+      const fresh = await API.get(`/api/tasks/${taskId}`);
       renderTimeTracking(fresh);
       await loadState();
     });
@@ -488,18 +479,19 @@ function renderTimeTracking(task) {
 }
 
 async function toggleTimerFromModal() {
-  if (!openTaskId) return;
-  const task = await API.get(`/api/tasks/${openTaskId}`);
+  const taskId = openTaskId;
+  if (!taskId) return;
+  const task = await API.get(`/api/tasks/${taskId}`);
   if (task.timer_running) {
 
-    await API.post(`/api/tasks/${openTaskId}/timer/stop`, {});
+    await API.post(`/api/tasks/${taskId}/timer/stop`, {});
   } else {
     const userId = currentUserId || (state.users[0] && state.users[0].id);
     if (!userId) { showToast("Сначала выберите участника («Я:»)"); return; }
     setCurrentUserId(userId);
-    await API.post(`/api/tasks/${openTaskId}/timer/start`, { user_id: userId });
+    await API.post(`/api/tasks/${taskId}/timer/start`, { user_id: userId });
   }
-  const fresh = await API.get(`/api/tasks/${openTaskId}`);
+  const fresh = await API.get(`/api/tasks/${taskId}`);
   renderTimeTracking(fresh);
   await loadState();
 }
@@ -536,22 +528,30 @@ function toggleTagPreset(tag) {
 // ------------------------------------------------------------
 export async function saveOpenTaskFromModal() {
   if (!openTaskId || !isTaskFormDirty()) return;
-  taskSaved = true;
   const form = currentTaskFormValues();
-  await API.put(`/api/tasks/${openTaskId}`, {
-    title: form.title,
-    description: form.description,
-    priority: form.priority,
-    assignee_id: form.assignee_id ? Number(form.assignee_id) : null,
-    due_date: form.due_date,
-    tags: form.tags.split(",").map(s => s.trim()).filter(Boolean),
-  });
-  if (form.column_id !== openTaskSnapshot.column_id) {
-    await API.post(`/api/tasks/${openTaskId}/move`, {
-      column_id: Number(form.column_id),
-      position: 9999,
+  try {
+    await API.put(`/api/tasks/${openTaskId}`, {
+      title: form.title,
+      description: form.description,
+      priority: form.priority,
+      assignee_id: form.assignee_id ? Number(form.assignee_id) : null,
+      due_date: form.due_date,
+      tags: form.tags.split(",").map(s => s.trim()).filter(Boolean),
     });
+    if (form.column_id !== openTaskSnapshot.column_id) {
+      await API.post(`/api/tasks/${openTaskId}/move`, {
+        column_id: Number(form.column_id),
+        position: 9999,
+      });
+    }
+  } catch (e) {
+    // Раньше taskSaved выставлялся до запроса: при сетевой ошибке закрытие
+    // модалки могло удалить несохранённую новую задачу.
+    showToast("Не удалось сохранить задачу. Подробности — в консоли (F12).");
+    console.error("[QuestLog] Сохранение задачи не удалось:", e);
+    return;
   }
+  taskSaved = true;
   await loadState();
   closeOverlay(byId("task-modal"));
 }

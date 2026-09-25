@@ -17,9 +17,12 @@ const MONTHS = [
   "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
 ];
 
-let popup = null; // единственный попап на всё приложение
-let activeInput = null; // input, для которого сейчас открыт попап
-let viewDate = new Date(); // отображаемый месяц
+/** @type {HTMLDivElement | null} */ // единственный попап на всё приложение
+let popup = null;
+/** @type {HTMLInputElement | null} */ // input, для которого сейчас открыт попап
+let activeInput = null;
+/** @type {Date} */ // отображаемый месяц
+let viewDate = new Date();
 
 function toKey(d) {
   const y = d.getFullYear();
@@ -30,16 +33,21 @@ function toKey(d) {
 
 function parseKey(key) {
   if (!key) return null;
-  const [y, m, d] = key.split("-").map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (!match) return null;
+  const [, y, m, d] = match.map(Number);
+  const date = new Date(y, m - 1, d);
+  // new Date нормализует 2025-02-31 в начало марта — такое значение
+  // не должно молча открывать другой месяц.
+  if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return null;
+  return date;
 }
 
 // ------------------------------------------------------------
 // Каркас попапа создаётся один раз и переиспользуется
 // ------------------------------------------------------------
 function ensurePopup() {
-  if (popup) return popup;
+  if (popup && popup.isConnected) return popup;
   popup = document.createElement("div");
   popup.id = "date-picker-popup";
   popup.className = "date-picker-popup hidden";
@@ -78,7 +86,9 @@ function ensurePopup() {
 function commitValue(key) {
   if (!activeInput) return;
   activeInput.value = key;
-  // Сообщаем остальному коду, что значение изменилось (как change у input).
+  // Сообщаем остальному коду, что значение изменилось
+  // (как input и change у настоящего ввода).
+  activeInput.dispatchEvent(new Event("input", { bubbles: true }));
   activeInput.dispatchEvent(new Event("change", { bubbles: true }));
   closePicker();
 }
@@ -124,6 +134,7 @@ function positionPopup() {
   if (!activeInput || !popup) return;
   const r = activeInput.getBoundingClientRect();
   popup.classList.remove("hidden");
+  popup.style.maxWidth = `${window.innerWidth - 16}px`;
   const pw = popup.offsetWidth;
   const ph = popup.offsetHeight;
   let left = r.left;
@@ -134,7 +145,7 @@ function positionPopup() {
   popup.style.top = `${Math.round(top)}px`;
 }
 
-export function openDatePicker(input) {
+export function openDatePicker(/** @type {HTMLInputElement} */ input) {
   ensurePopup();
   activeInput = input;
   const base = parseKey(input.value) || new Date();
@@ -161,7 +172,12 @@ export function closePicker() {
 // календаря больше нет вообще. Значение по-прежнему ISO-строка
 // (как у type=date), поэтому весь остальной код, читающий .value,
 // работает без изменений.
-export function attachDatePicker(input) {
+function togglePicker(/** @type {HTMLInputElement} */ input) {
+  if (activeInput === input) closePicker();
+  else openDatePicker(input);
+}
+
+export function attachDatePicker(/** @type {HTMLInputElement} */ input) {
   if (!input || input.dataset.dpBound) return;
   input.dataset.dpBound = "1";
 
@@ -180,8 +196,7 @@ export function attachDatePicker(input) {
     cover.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (activeInput === input) closePicker();
-      else openDatePicker(input);
+      togglePicker(input);
     });
     wrap.appendChild(cover);
 
@@ -194,8 +209,7 @@ export function attachDatePicker(input) {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (activeInput === input) closePicker();
-      else openDatePicker(input);
+      togglePicker(input);
     });
     wrap.appendChild(btn);
     wrap.classList.add("dp-field");
@@ -205,14 +219,18 @@ export function attachDatePicker(input) {
     if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
       e.preventDefault();
       openDatePicker(input);
-    } else if (e.key === "Escape") {
-      closePicker();
     }
+    // Escape обрабатывается глобальным обработчиком в bindDatePickers().
   });
 }
 
 // Глобальные обработчики закрытия — один раз на приложение.
+let globalHandlersBound = false;
+
+/** Привязывает глобальные обработчики закрытия (один раз на приложение). */
 export function bindDatePickers() {
+  if (globalHandlersBound) return;
+  globalHandlersBound = true;
   document.addEventListener("click", (e) => {
     if (!activeInput) return;
     if (e.target.closest("#date-picker-popup") || e.target.closest(".dp-field")) return;

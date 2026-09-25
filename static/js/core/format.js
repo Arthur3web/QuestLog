@@ -110,8 +110,11 @@ export function toDateKey(d) {
 // Разбираем ключ YYYY-MM-DD в локальном времени: new Date('YYYY-MM-DD')
 // парсится как UTC и в части часовых поясов сдвигает дату на день.
 function parseDateKey(key) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key || "")) return null;
   const [y, m, d] = key.split("-").map(Number);
-  return new Date(y, m - 1, d);
+  const date = new Date(y, m - 1, d);
+  if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return null;
+  return date;
 }
 
 // Начало сегодняшнего дня
@@ -123,7 +126,8 @@ function startOfToday() {
 export function daysUntil(dateKey) {
   if (!dateKey) return null;
   const today = startOfToday();
-  return Math.round((parseDateKey(dateKey) - today) / 86400000);
+  const date = parseDateKey(dateKey);
+  return date ? Math.round((date - today) / 86400000) : null;
 }
 
 // Срок просрочен, если он раньше начала сегодняшнего дня
