@@ -4,4 +4,4 @@ waitress>=3.0
 pystray>=0.19
 pillow>=10.0
 pywebview>=5.0
-
+pytest>=8.0
