@@ -27,7 +27,7 @@ import { fetchBoards, renderBoardTitle, bindBoards } from "./boards.js";
 import { renderBoard } from "./board.js";
 import { bindContextMenu } from "./task-card.js";
 import { loadState } from "../domain/state-loader.js";
-import { openTaskModal, bindTaskModal } from "./task-modal.js";
+import { openTaskModal, bindTaskModal, openNewTaskModal } from "./task-modal.js";
 import { bindCalendar } from "./calendar.js";
 import { bindPeople } from "./people.js";
 import { bindBulkMove } from "./bulk-move.js";
@@ -130,22 +130,15 @@ function bindGlobalEvents() {
 }
 
 // ------------------------------------------------------------
-// Новая задача — создаётся в первой неDone колонке (обычно «Бэклог»)
-// и сразу открывается в модалке. Исполнитель — текущий пользователь,
-// иначе при включённом фильтре «Мои задачи» карточка была бы невидимой.
+// Новая задача — открывает форму создания. Запись в БД создаётся
+// одним POST-запросом по кнопке «Создать» (см. task-modal.js),
+// поэтому случайный клик больше не оставляет пустых «Новых задач»
+// на доске. Исполнитель по умолчанию — текущий пользователь, иначе
+// при включённом фильтре «Мои задачи» карточка была бы невидимой.
 // ------------------------------------------------------------
 export async function createAndOpenTask() {
   if (!currentUserId && state.users.length) setCurrentUserId(state.users[0].id);
-  const col = state.columns.find(c => !c.is_done_state) || state.columns[0];
-  if (!col) return;
-  const task = await API.post("/api/tasks", {
-    board_id: currentBoardId,
-    column_id: col.id,
-    title: "Новая задача",
-    assignee_id: currentUserId,
-  });
-  await loadState();
-  await openTaskModal(task.id, { selectTitle: true, isNew: true });
+  await openNewTaskModal();
 }
 
 // Обратный вызов для tray-приложения (desktop.py)

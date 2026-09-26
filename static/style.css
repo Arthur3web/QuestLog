@@ -782,6 +782,7 @@ body {
   font-family: var(--font-display) !important;
   font-size: 20px !important;
   font-weight: 700;
+  letter-spacing: 0.02em;
   color: var(--text);
   padding: 2px 0 12px !important;
   border-bottom: var(--border-width) solid var(--border) !important;
@@ -791,6 +792,90 @@ body {
 .tm-title-input:focus {
   box-shadow: none !important;
   border-bottom-color: var(--accent) !important;
+}
+
+/* Попытка создать задачу без названия: красная линия под названием.
+   Селектор с :focus перебивает и фокусный синий, !important — прочие
+   рамки базовых правил. */
+html .tm-title-input.tm-invalid,
+html .modal input.tm-title-input.tm-invalid:focus {
+  border-bottom-color: var(--danger) !important;
+}
+html .tm-title-input.tm-invalid::placeholder {
+  color: var(--danger);
+}
+
+/* Контейнер названия — точка отсчёта для подсказки валидации */
+.tm-title-wrap { position: relative; }
+
+/* Подсказка «Название обязательно»: под линией поля, слева — там,
+   где начинается текст. Абсолютное позиционирование не сдвигает
+   форму, а место в отступе поля (16px) уже зарезервировано. */
+.tm-title-hint {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--danger);
+}
+.tm-title-hint[hidden] { display: none; }
+
+/* Подсказка «Срок не может быть в прошлом»: та же система.
+   Поля tm-field образуют grid с gap 12px — подсказка живёт
+   в этом зазоре, форма не прыгает. */
+.tm-due-field { position: relative; }
+.tm-due-hint {
+  margin-top: 4px;
+}
+.tm-due-field input.tm-invalid {
+  border-color: var(--danger) !important;
+}
+.tm-due-field input.tm-invalid:focus {
+  border-color: var(--danger) !important;
+}
+
+/* Терминальная шапка — единая система для всех окон в ретро-теме:
+   синий заголовок, синяя линия и под ней вторая, бледная и уже
+   (пиксельная «двойная», как рамки в старых TUI), плюс едва заметный
+   растр в тон сканлайнам доски. Без заливки и градиентов: плоскость —
+   язык этой темы, градиентные ленты остались у «Плаката». Зелёный не
+   используем: в теме он зарезервирован за статусом Done.
+   Плакат перекрашивает свои шапки по-своему и эти правила не задевает. */
+html:not([data-theme="poster"]) #task-modal .modal-header,
+html:not([data-theme="poster"]) #people-modal .modal-header,
+html:not([data-theme="poster"]) #board-modal .modal-header,
+html:not([data-theme="poster"]) #confirm-modal .modal-header,
+html:not([data-theme="poster"]) #bulk-move-modal .modal-header,
+html:not([data-theme="poster"]) #calendar-panel .calendar-panel-header {
+  position: relative;
+  border-bottom-color: var(--accent);
+  background-image: repeating-linear-gradient(
+    0deg, color-mix(in srgb, var(--accent) 8%, transparent) 0 1px, transparent 1px 3px);
+}
+html:not([data-theme="poster"]) #task-modal .modal-header h3,
+html:not([data-theme="poster"]) #people-modal .modal-header h3,
+html:not([data-theme="poster"]) #board-modal .modal-header h3,
+html:not([data-theme="poster"]) #confirm-modal .modal-header h3,
+html:not([data-theme="poster"]) #bulk-move-modal .modal-header h3,
+html:not([data-theme="poster"]) #calendar-panel .calendar-panel-header h3 {
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+html:not([data-theme="poster"]) #task-modal .modal-header::after,
+html:not([data-theme="poster"]) #people-modal .modal-header::after,
+html:not([data-theme="poster"]) #board-modal .modal-header::after,
+html:not([data-theme="poster"]) #confirm-modal .modal-header::after,
+html:not([data-theme="poster"]) #bulk-move-modal .modal-header::after,
+html:not([data-theme="poster"]) #calendar-panel .calendar-panel-header::after {
+  content: "";
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: -7px;
+  height: var(--border-width);
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .tm-meta-grid {
@@ -841,6 +926,10 @@ body {
 }
 .tag-preset-chip { border-radius: 0; }
 
+/* В форме создания секции подзадач/вложений/комментариев скрыты из JS
+   (task-modal.js): задача ещё не записана в БД, и этим спискам нечего
+   показывать. Кнопка «Удалить» прячется через visibility, чтобы кластер
+   «Отмена/Создать» не прыгал влево на её место. */
 .tm-section { margin-top: 22px; }
 .tm-section h3 {
   font-family: var(--font-display);
@@ -1869,6 +1958,13 @@ body {
 }
 .dp-day:hover { border-color: var(--accent); background: var(--surface); color: var(--accent); }
 .dp-day.other-month { opacity: 0.35; }
+/* Недоступный день (раньше минимальной даты) */
+.dp-day.dp-disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+.dp-day.dp-disabled:hover { border-color: var(--border-soft); background: var(--surface-sunken); color: var(--text); }
 .dp-day.today { border-color: var(--accent-bright); font-weight: 700; }
 .dp-day.selected {
   background: var(--accent);

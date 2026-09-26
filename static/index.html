@@ -141,7 +141,11 @@
       <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>
     </div>
     <div class="modal-body">
-      <input id="tm-title" class="tm-title-input" placeholder="Название задачи" autocomplete="off">
+      <div class="tm-title-wrap">
+        <input id="tm-title" class="tm-title-input" placeholder="Название задачи" autocomplete="off">
+        <!-- Появляется вместе с красной рамкой валидации (task-modal.js) -->
+        <span id="tm-title-hint" class="tm-title-hint" hidden>Название обязательно</span>
+      </div>
 
       <div class="tm-meta-grid">
         <label class="tm-field">
@@ -161,11 +165,13 @@
           <span>Исполнитель</span>
           <select id="tm-assignee"></select>
         </label>
-        <label class="tm-field">
+        <label class="tm-field tm-due-field">
           <span>Срок</span>
           <span class="dp-input-wrap">
             <input id="tm-due" type="date" autocomplete="off">
           </span>
+          <!-- Появляется при попытке отправить форму со сроком в прошлом -->
+          <span id="tm-due-hint" class="tm-title-hint tm-due-hint" hidden>Срок не может быть в прошлом</span>
         </label>
         <label class="tm-field" style="grid-column: 1 / -1;">
           <span>Теги</span>
@@ -192,7 +198,7 @@
         <div id="tm-time-log" class="time-log"></div>
       </section>
 
-      <section class="tm-section">
+      <section class="tm-section" id="tm-subtasks-section">
         <div class="tm-section-head">
           <h3>Подзадачи</h3>
           <span id="tm-subtasks-progress" class="subtasks-progress"></span>
@@ -215,7 +221,7 @@
         <p class="attachment-drop-hint hint-text">Отпустите файлы, чтобы прикрепить их к задаче</p>
       </section>
 
-      <section class="tm-section">
+      <section class="tm-section" id="tm-comments-section">
         <h3>Комментарии</h3>
         <div id="tm-comments" class="comment-list"></div>
         <div class="comment-composer">
@@ -229,7 +235,7 @@
       <button id="tm-delete" class="btn-danger" title="Удалить задачу"><span data-icon="trash"></span> Удалить</button>
       <div class="footer-actions">
         <span id="tm-saved-hint" class="saved-hint"></span>
-        <button class="btn-secondary" data-close>Закрыть</button>
+        <button id="tm-cancel-btn" class="btn-secondary" data-close>Отмена</button>
         <button id="tm-save-btn" class="btn-primary">Сохранить</button>
       </div>
     </div>

@@ -5,13 +5,10 @@
 
 import { byId, escapeHtml } from "../core/dom.js";
 import { formatDate, toDateKey, isOverdue, isDueSoon, daysUntil } from "../core/format.js";
-import { state, currentBoardId, currentUserId } from "../domain/store.js";
+import { state, currentUserId, setCurrentUserId } from "../domain/store.js";
 import { PRIORITY_ORDER } from "../core/config.js";
 import { isModalOpen } from "../core/modal.js";
-import { openTaskModal } from "./task-modal.js";
-import { API } from "../core/api.js";
-import { loadState } from "../domain/state-loader.js";
-import { showToast } from "../core/toast.js";
+import { openTaskModal, openNewTaskModal } from "./task-modal.js";
 
 let calendarOpen = false;
 let calendarViewDate = new Date(); // отображаемый месяц
@@ -206,14 +203,12 @@ export function bindCalendar() {
   });
   byId("calendar-close-btn").addEventListener("click", close);
   byId("calendar-add-task").addEventListener("click", async () => {
-    const column = state.columns.find((c) => !c.is_done_state) || state.columns[0];
-    if (!column) return;
-    try {
-      const task = await API.post("/api/tasks", { board_id: currentBoardId, column_id: column.id, title: "Новая задача", assignee_id: currentUserId, due_date: calendarSelectedDate });
-      await loadState();
-      close();
-      await openTaskModal(task.id, { selectTitle: true, isNew: true });
-    } catch (e) { showToast("Не удалось создать задачу"); }
+    if (!calendarSelectedDate) return;
+    if (!currentUserId && state.users.length) setCurrentUserId(state.users[0].id);
+    close();
+    // Задача записывается в БД только по кнопке «Создать» —
+    // выбранный день подставляется в форму как срок.
+    await openNewTaskModal({ dueDate: calendarSelectedDate });
   });
   byId("calendar-overlay").addEventListener("click", close);
 

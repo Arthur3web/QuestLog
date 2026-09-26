@@ -23,6 +23,20 @@ let popup = null;
 let activeInput = null;
 /** @type {Date} */ // отображаемый месяц
 let viewDate = new Date();
+/** @type {string | null} */ // минимально допустимая дата YYYY-MM-DD или null
+let minDateKey = null;
+
+/**
+ * Запрещает выбор дат раньше key (YYYY-MM-DD) для всех попапов, открытых
+ * после вызова. null возвращает обычное поведение.
+ */
+export function setDatePickerMinDate(key) {
+  minDateKey = key || null;
+}
+
+function isBeforeMin(key) {
+  return !!minDateKey && key < minDateKey;
+}
 
 function toKey(d) {
   const y = d.getFullYear();
@@ -103,6 +117,9 @@ function ensurePopup() {
 
 function commitValue(key) {
   if (!activeInput) return;
+  // Минимальная дата: недопустимый выбор игнорируется (кнопки дней
+  // в гриде и так неактивны, здесь страховка от всех путей).
+  if (key && isBeforeMin(key)) return;
   activeInput.value = key;
   // Сообщаем остальному коду, что значение изменилось
   // (как input и change у настоящего ввода).
@@ -142,13 +159,19 @@ function renderGrid() {
     if (d.getMonth() !== month) cell.classList.add("other-month");
     if (key === todayKey) cell.classList.add("today");
     if (key === selectedKey) cell.classList.add("selected");
+    if (isBeforeMin(key)) {
+      cell.classList.add("dp-disabled");
+      cell.disabled = true;
+      cell.title = "Дата в прошлом недоступна";
+    }
     cell.dataset.key = key;
     cell.textContent = d.getDate();
     cell.setAttribute("role", "gridcell");
     cell.setAttribute("aria-label", d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }));
+    if (isBeforeMin(key)) cell.setAttribute("aria-disabled", "true");
     if (key === selectedKey) cell.setAttribute("aria-selected", "true");
     if (key === todayKey) cell.setAttribute("aria-current", "date");
-    if (key === selectedKey || key === todayKey) cell.tabIndex = 0;
+    if ((key === selectedKey || key === todayKey) && !isBeforeMin(key)) cell.tabIndex = 0;
     else cell.tabIndex = -1;
     grid.appendChild(cell);
   }

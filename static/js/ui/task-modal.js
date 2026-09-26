@@ -15,19 +15,37 @@ import {
   state, userById,
   openTaskId, openTaskSnapshot,
   currentUserId, setCurrentUserId,
+  currentBoardId,
   setOpenTask, clearOpenTask,
 } from "../domain/store.js";
 import { openOverlay, closeOverlay, confirmDialog } from "../core/modal.js";
+import { setDatePickerMinDate } from "./date-picker.js";
+
+// Ключ даты YYYY-MM-DD из объекта Date (как в date-picker.js)
+function toKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 import { showToast } from "../core/toast.js";
 import { loadState } from "../domain/state-loader.js";
 
 let taskSaved = false;
+// Режим «создание задачи»: задача ещё НЕ записана в БД и будет создана
+// одним POST-запросом по кнопке «Создать». В этом режиме скрыты секции
+// подзадач/вложений/комментариев (им нечего показывать), кнопка «Удалить»
+// и закрытие окна ничего не пишет и не удаляет.
+let creatingNew = false;
+// Дефолты полей формы в режиме создания (колонка, срок из календаря и т.п.)
+let createDefaults = null;
 
 // ------------------------------------------------------------
 // Модалка задачи
 // ------------------------------------------------------------
-export async function openTaskModal(taskId, { selectTitle = false, isNew = false } = {}) {
-  taskSaved = !isNew;
+export async function openTaskModal(taskId, { selectTitle = false } = {}) {
+  creatingNew = false;
+  taskSaved = true;
   const task = await API.get(`/api/tasks/${taskId}`);
 
   const titleInput = byId("tm-title");
@@ -70,25 +88,35 @@ export async function openTaskModal(taskId, { selectTitle = false, isNew = false
   renderAttachments(task.attachments);
   renderComments(task.comments);
   renderTimeTracking(task);
-  byId("tm-time-section").style.display = isNew ? "none" : "";
 
   byId("tm-subtask-input").value = "";
   updateSubtaskAddState();
 
+  // В режиме редактирования все секции и «Удалить» всегда видимы
+  // (в т.ч. «Время», скрытая в форме создания),
+  // а нижняя кнопка снова называется «Закрыть».
+  for (const id of ["tm-subtasks-section", "tm-attachments-section", "tm-comments-section", "tm-time-section"]) {
+    byId(id).style.display = "";
+  }
+  byId("tm-delete").style.visibility = "";
+  byId("tm-cancel-btn").textContent = "Закрыть";
+
   const ov = openOverlay("task-modal", async () => {
     clearTimerTicker();
-    if (openTaskId && !taskSaved) {
-      try {
-        await API.del(`/api/tasks/${openTaskId}`);
-        await loadState();
-      } catch (e) { /* игнор */ }
-    }
     clearOpenTask();
   });
   if (ov && !ov.dataset.boundTitle) {
-    // Заголовок модалки повторяет название задачи
+    // Заголовок модалки повторяет название задачи (только в режиме
+    // редактирования: в форме создания заголовок — «Новая задача»).
     titleInput.addEventListener("input", e => {
-      byId("tm-heading").textContent = e.target.value.trim() || "Задача";
+      if (!creatingNew) byId("tm-heading").textContent = e.target.value.trim() || "Задача";
+    });
+    // Enter в названии в режиме создания = кнопка «Создать».
+    titleInput.addEventListener("keydown", e => {
+      if (creatingNew && e.key === "Enter") {
+        e.preventDefault();
+        saveOpenTaskFromModal();
+      }
     });
     ov.dataset.boundTitle = "1";
   }
@@ -108,6 +136,79 @@ export async function openTaskModal(taskId, { selectTitle = false, isNew = false
   if (selectTitle) {
     setTimeout(() => { titleInput.focus(); titleInput.select(); }, 40);
   }
+}
+
+// ------------------------------------------------------------
+// Режим создания: форма открыта, но задачи в БД ещё нет.
+// Запись создаётся одним POST по кнопке «Создать» (или Enter
+// в названии); «Отмена»/Escape просто закрывают окно.
+// ------------------------------------------------------------
+export async function openNewTaskModal({ dueDate = "" } = {}) {
+  creatingNew = true;
+  taskSaved = false; // таймер-тикер уже не нужен, но флаг держит консистентность
+  if (!currentUserId && state.users.length) setCurrentUserId(state.users[0].id);
+  const col = state.columns.find(c => !c.is_done_state) || state.columns[0];
+  createDefaults = { column_id: col ? String(col.id) : "", dueDate };
+
+  const titleInput = byId("tm-title");
+  titleInput.value = "";
+  titleInput.classList.remove("tm-invalid");
+  byId("tm-title-hint").hidden = true;
+  byId("tm-priority").value = "normal";
+  byId("tm-due").value = dueDate || "";
+  byId("tm-tags").value = "";
+  byId("tm-description").value = "";
+  renderTagPresets([]);
+
+  const columnSel = byId("tm-column");
+  columnSel.innerHTML = state.columns.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+  columnSel.value = createDefaults.column_id;
+
+  const assigneeSel = byId("tm-assignee");
+  assigneeSel.innerHTML = `<option value="">Без исполнителя</option>` +
+    state.users.map(u => `<option value="${u.id}">${escapeHtml(u.name)}</option>`).join("");
+  assigneeSel.value = currentUserId || "";
+
+  // Снапшот пустой формы: «Создать» активна, когда название непустое
+  // (даже если всё совпадает с дефолтами).
+  setOpenTask(null, {
+    title: "",
+    description: "",
+    priority: "normal",
+    assignee_id: String(currentUserId || ""),
+    due_date: dueDate || "",
+    tags: "",
+    column_id: createDefaults.column_id,
+  });
+  updateSaveButtonState();
+
+  // Секции с контентом задачи в форме создания не нужны:
+  // им пока нечего показывать.
+  for (const id of ["tm-subtasks-section", "tm-attachments-section", "tm-comments-section", "tm-time-section"]) {
+    byId(id).style.display = "none";
+  }
+  byId("tm-delete").style.visibility = "hidden";
+
+  // Срок в прошлом недоступен: пикер блокирует такие дни,
+  // «Создать» дополнительно проверяет при отправке.
+  setDatePickerMinDate(toKey(new Date()));
+  byId("tm-due").classList.remove("tm-invalid");
+  byId("tm-due-hint").hidden = true;
+  byId("tm-cancel-btn").textContent = "Отмена";
+
+  // Открытие/закрытие ничего не пишет и не удаляет.
+  openOverlay("task-modal", () => {
+    clearTimerTicker();
+    clearOpenTask();
+    createDefaults = null;
+  });
+
+  byId("tm-heading").textContent = "Новая задача";
+
+  requestAnimationFrame(() => {
+    autoGrowDescription();
+    titleInput.focus();
+  });
 }
 
 // ------------------------------------------------------------
@@ -150,7 +251,15 @@ function isTaskFormDirty() {
 
 export function updateSaveButtonState() {
   const btn = byId("tm-save-btn");
-  if (btn) btn.disabled = !isTaskFormDirty();
+  if (!btn) return;
+  if (creatingNew) {
+    // Создание: достаточно непустого названия — остальное есть дефолты.
+    btn.textContent = "Создать";
+    btn.disabled = byId("tm-title").value.trim().length === 0;
+    return;
+  }
+  btn.textContent = "Сохранить";
+  btn.disabled = !isTaskFormDirty();
 }
 
 // ------------------------------------------------------------
@@ -254,6 +363,7 @@ export async function addSubtaskFromModal() {
   await loadState();
   input.focus();
 }
+
 
 // Кнопка «+ добавить» неактивна, пока поле новой подзадачи пусто.
 export function updateSubtaskAddState() {
@@ -629,9 +739,51 @@ function toggleTagPreset(tag) {
 }
 
 // ------------------------------------------------------------
-// Сохранение / удаление задачи
+// Создание / сохранение / удаление задачи
 // ------------------------------------------------------------
 export async function saveOpenTaskFromModal() {
+  if (creatingNew) {
+    const titleInput = byId("tm-title");
+    const title = titleInput.value.trim();
+    if (!title) {
+      // Попытка отправить без названия: красная рамка на поле и
+      // подсказка; снимутся, как только пользователь начнёт набирать.
+      titleInput.classList.add("tm-invalid");
+      byId("tm-title-hint").hidden = false;
+      titleInput.focus();
+      return;
+    }
+    // Срок не в прошлом (пикер уже не даёт выбрать такие дни,
+    // эта проверка — страховка и источник подсказки).
+    const dueInput = byId("tm-due");
+    if (dueInput.value && dueInput.value < toKey(new Date())) {
+      dueInput.classList.add("tm-invalid");
+      byId("tm-due-hint").hidden = false;
+      return;
+    }
+    const form = currentTaskFormValues();
+    try {
+      await API.post("/api/tasks", {
+        board_id: currentBoardId,
+        column_id: Number(form.column_id),
+        title,
+        description: form.description,
+        priority: form.priority,
+        assignee_id: form.assignee_id ? Number(form.assignee_id) : null,
+        due_date: form.due_date,
+        tags: form.tags.split(",").map(s => s.trim()).filter(Boolean),
+      });
+    } catch (e) {
+      showToast("Не удалось создать задачу. Подробности — в консоли (F12).");
+      console.error("[QuestLog] Создание задачи не удалось:", e);
+      return;
+    }
+    creatingNew = false;
+    createDefaults = null;
+    await loadState();
+    closeOverlay(byId("task-modal"));
+    return;
+  }
   if (!openTaskId || !isTaskFormDirty()) return;
   const form = currentTaskFormValues();
   try {
@@ -662,7 +814,8 @@ export async function saveOpenTaskFromModal() {
 }
 
 export async function deleteOpenTask() {
-  if (!openTaskId) return;
+  // В форме создания удалять нечего — кнопка там и так скрыта.
+  if (!openTaskId || creatingNew) return;
   const ok = await confirmDialog(
     "Удалить эту задачу без возможности восстановления?",
     { title: "Удалить задачу" }
@@ -678,7 +831,14 @@ export async function deleteOpenTask() {
 // ------------------------------------------------------------
 export function bindTaskModal() {
   // Отслеживание изменений полей — включает кнопку «Сохранить»
-  byId("tm-title").addEventListener("input", updateSaveButtonState);
+  byId("tm-title").addEventListener("input", e => {
+    // Валидная подпись снимает красную рамку и подсказку валидации
+    if (e.target.value.trim()) {
+      e.target.classList.remove("tm-invalid");
+      byId("tm-title-hint").hidden = true;
+    }
+    updateSaveButtonState();
+  });
   byId("tm-description").addEventListener("input", () => {
     autoGrowDescription();
     updateSaveButtonState();
@@ -691,6 +851,14 @@ export function bindTaskModal() {
     const tags = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
     renderTagPresets(tags);
     updateSaveButtonState();
+  });
+
+  // Выбор/изменение даты снимает красную рамку и подсказку срока
+  byId("tm-due").addEventListener("input", e => {
+    if (e.target.value) {
+      e.target.classList.remove("tm-invalid");
+      byId("tm-due-hint").hidden = true;
+    }
   });
 
   byId("tm-save-btn").addEventListener("click", saveOpenTaskFromModal);
