@@ -230,3 +230,38 @@ def test_inline_preview_refused_for_other_types(client, board, filename):
     res = client.get(f"/api/attachments/{attachment['id']}/download?inline=1")
     assert res.status_code == 200
     assert res.headers["Content-Disposition"].startswith("attachment")
+
+
+def test_update_comment_text(client, board):
+    """Текст комментария можно отредактировать."""
+    board_id, cols = board
+    task = make_task(client, board_id, cols["Бэклог"]).get_json()
+    created = client.post(f"/api/tasks/{task['id']}/comments", json={"user_id": 1, "text": "Первый вариант"})
+    comment = created.get_json()
+
+    res = client.put(f"/api/comments/{comment['id']}", json={"text": "Исправленный текст"})
+    assert res.status_code == 200
+    assert res.get_json()["text"] == "Исправленный текст"
+
+    task_res = client.get(f"/api/tasks/{task['id']}")
+    texts = [c["text"] for c in task_res.get_json()["comments"]]
+    assert texts == ["Исправленный текст"]
+
+
+def test_update_comment_rejects_empty_text(client, board):
+    """Пустой текст (или одни пробелы) не сохраняется."""
+    board_id, cols = board
+    task = make_task(client, board_id, cols["Бэклог"]).get_json()
+    comment = client.post(f"/api/tasks/{task['id']}/comments", json={"user_id": 1, "text": "Не стирать"}).get_json()
+
+    res = client.put(f"/api/comments/{comment['id']}", json={"text": "   "})
+    assert res.status_code == 400
+
+    kept = client.get(f"/api/tasks/{task['id']}").get_json()["comments"][0]["text"]
+    assert kept == "Не стирать"
+
+
+def test_update_comment_404_for_missing(client, board):
+    """Чужой/несуществующий id — 404."""
+    res = client.put("/api/comments/999999", json={"text": "где-то"})
+    assert res.status_code == 404

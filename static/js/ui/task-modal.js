@@ -19,15 +19,6 @@ import {
   setOpenTask, clearOpenTask,
 } from "../domain/store.js";
 import { openOverlay, closeOverlay, confirmDialog } from "../core/modal.js";
-import { setDatePickerMinDate } from "./date-picker.js";
-
-// Ключ даты YYYY-MM-DD из объекта Date (как в date-picker.js)
-function toKey(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 import { showToast } from "../core/toast.js";
 import { loadState } from "../domain/state-loader.js";
 
@@ -189,11 +180,6 @@ export async function openNewTaskModal({ dueDate = "" } = {}) {
   }
   byId("tm-delete").style.visibility = "hidden";
 
-  // Срок в прошлом недоступен: пикер блокирует такие дни,
-  // «Создать» дополнительно проверяет при отправке.
-  setDatePickerMinDate(toKey(new Date()));
-  byId("tm-due").classList.remove("tm-invalid");
-  byId("tm-due-hint").hidden = true;
   byId("tm-cancel-btn").textContent = "Отмена";
 
   // Открытие/закрытие ничего не пишет и не удаляет.
@@ -222,10 +208,11 @@ export function autoGrowDescription() {
   const ta = byId("tm-description");
   if (!ta) return;
   // Сначала сбрасываем высоту, иначе при удалении текста она не уменьшается.
+  // Максимума больше нет: описание видно целиком всегда; длинный текст
+  // прокручивается вместе со всей модалкой.
   ta.style.height = "auto";
-  const max = Math.round(window.innerHeight * 0.5);
-  ta.style.height = Math.min(ta.scrollHeight, max) + "px";
-  ta.style.overflowY = ta.scrollHeight > max ? "auto" : "hidden";
+  ta.style.height = ta.scrollHeight + "px";
+  ta.style.overflowY = "hidden";
 }
 
 // ------------------------------------------------------------
@@ -568,10 +555,65 @@ function renderComments(comments) {
       <div class="comment-head">
         <span class="author">${author ? escapeHtml(author.name) : "Удалённый участник"}</span>
         <span>${formatDateTime(c.created_at)}</span>
+        <button class="edit-btn" title="Редактировать">${ICONS.edit}</button>
         <button class="remove-btn" title="Удалить">${ICONS.close}</button>
       </div>
       <div class="comment-body">${escapeHtml(c.text)}</div>
+      <div class="comment-editor" hidden>
+        <textarea rows="2" spellcheck="false">${escapeHtml(c.text)}</textarea>
+        <div class="comment-editor-actions">
+          <button class="btn-secondary comment-cancel">Отмена</button>
+          <button class="btn-primary comment-save" disabled>Сохранить</button>
+        </div>
+      </div>
     `;
+    const body = row.querySelector(".comment-body");
+    const editor = row.querySelector(".comment-editor");
+    const ta = editor.querySelector("textarea");
+    const saveBtn = editor.querySelector(".comment-save");
+
+    const startEdit = () => {
+      body.hidden = true;
+      editor.hidden = false;
+      ta.value = c.text;
+      autosizeTextarea(ta);
+      saveBtn.disabled = ta.value.trim() === c.text.trim();
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+    };
+    const stopEdit = () => {
+      editor.hidden = true;
+      body.hidden = false;
+    };
+
+    row.querySelector(".edit-btn").onclick = startEdit;
+    row.querySelector(".comment-cancel").onclick = stopEdit;
+
+    ta.addEventListener("input", () => {
+      autosizeTextarea(ta);
+      saveBtn.disabled = ta.value.trim() === c.text.trim() || ta.value.trim() === "";
+    });
+    ta.addEventListener("keydown", e => {
+      // Ctrl/Cmd+Enter сохраняет — как у композера новых комментариев
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); if (!saveBtn.disabled) saveBtn.click(); }
+      if (e.key === "Escape") { e.preventDefault(); stopEdit(); }
+    });
+    saveBtn.onclick = async () => {
+      const text = ta.value.trim();
+      if (!text || text === c.text.trim()) return;
+      const taskId = openTaskId;
+      if (!taskId) return;
+      try {
+        await API.put(`/api/comments/${c.id}`, { text });
+        c.text = text;
+        stopEdit();
+        body.textContent = text;
+      } catch (e) {
+        showToast("Не удалось сохранить комментарий");
+        console.error("[QuestLog] Сохранение комментария не удалось:", e);
+      }
+    };
+
     row.querySelector(".remove-btn").onclick = async () => {
       const taskId = openTaskId;
       if (!taskId) return;
@@ -582,6 +624,12 @@ function renderComments(comments) {
     };
     list.appendChild(row);
   });
+}
+
+// Авторост textarea редактора комментария под текст
+function autosizeTextarea(ta) {
+  ta.style.height = "auto";
+  ta.style.height = ta.scrollHeight + "px";
 }
 
 export async function submitCommentFromModal() {
@@ -753,14 +801,8 @@ export async function saveOpenTaskFromModal() {
       titleInput.focus();
       return;
     }
-    // Срок не в прошлом (пикер уже не даёт выбрать такие дни,
-    // эта проверка — страховка и источник подсказки).
-    const dueInput = byId("tm-due");
-    if (dueInput.value && dueInput.value < toKey(new Date())) {
-      dueInput.classList.add("tm-invalid");
-      byId("tm-due-hint").hidden = false;
-      return;
-    }
+    // Проверки названия достаточно: срок может быть любым
+    // (в т.ч. в прошлом — это нормально для задач задним числом).
     const form = currentTaskFormValues();
     try {
       await API.post("/api/tasks", {
@@ -851,14 +893,6 @@ export function bindTaskModal() {
     const tags = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
     renderTagPresets(tags);
     updateSaveButtonState();
-  });
-
-  // Выбор/изменение даты снимает красную рамку и подсказку срока
-  byId("tm-due").addEventListener("input", e => {
-    if (e.target.value) {
-      e.target.classList.remove("tm-invalid");
-      byId("tm-due-hint").hidden = true;
-    }
   });
 
   byId("tm-save-btn").addEventListener("click", saveOpenTaskFromModal);

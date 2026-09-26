@@ -822,60 +822,17 @@ html .tm-title-input.tm-invalid::placeholder {
 }
 .tm-title-hint[hidden] { display: none; }
 
-/* Подсказка «Срок не может быть в прошлом»: та же система.
-   Поля tm-field образуют grid с gap 12px — подсказка живёт
-   в этом зазоре, форма не прыгает. */
-.tm-due-field { position: relative; }
-.tm-due-hint {
-  margin-top: 4px;
-}
-.tm-due-field input.tm-invalid {
-  border-color: var(--danger) !important;
-}
-.tm-due-field input.tm-invalid:focus {
-  border-color: var(--danger) !important;
-}
-
-/* Терминальная шапка — единая система для всех окон в ретро-теме:
-   синий заголовок, синяя линия и под ней вторая, бледная и уже
-   (пиксельная «двойная», как рамки в старых TUI), плюс едва заметный
-   растр в тон сканлайнам доски. Без заливки и градиентов: плоскость —
-   язык этой темы, градиентные ленты остались у «Плаката». Зелёный не
-   используем: в теме он зарезервирован за статусом Done.
+/* Акцентная шапка — единая система для всех окон ретро-темы:
+   синий заголовок и синяя линия под шапкой, на обычной поверхности.
+   Окно подключается атрибутом data-header-accent в разметке.
    Плакат перекрашивает свои шапки по-своему и эти правила не задевает. */
-html:not([data-theme="poster"]) #task-modal .modal-header,
-html:not([data-theme="poster"]) #people-modal .modal-header,
-html:not([data-theme="poster"]) #board-modal .modal-header,
-html:not([data-theme="poster"]) #confirm-modal .modal-header,
-html:not([data-theme="poster"]) #bulk-move-modal .modal-header,
-html:not([data-theme="poster"]) #calendar-panel .calendar-panel-header {
-  position: relative;
+html:not([data-theme="poster"]) [data-header-accent] .modal-header,
+html:not([data-theme="poster"]) [data-header-accent] .calendar-panel-header {
   border-bottom-color: var(--accent);
-  background-image: repeating-linear-gradient(
-    0deg, color-mix(in srgb, var(--accent) 8%, transparent) 0 1px, transparent 1px 3px);
 }
-html:not([data-theme="poster"]) #task-modal .modal-header h3,
-html:not([data-theme="poster"]) #people-modal .modal-header h3,
-html:not([data-theme="poster"]) #board-modal .modal-header h3,
-html:not([data-theme="poster"]) #confirm-modal .modal-header h3,
-html:not([data-theme="poster"]) #bulk-move-modal .modal-header h3,
-html:not([data-theme="poster"]) #calendar-panel .calendar-panel-header h3 {
+html:not([data-theme="poster"]) [data-header-accent] .modal-header h3,
+html:not([data-theme="poster"]) [data-header-accent] .calendar-panel-header h3 {
   color: var(--accent);
-  letter-spacing: 0.04em;
-}
-html:not([data-theme="poster"]) #task-modal .modal-header::after,
-html:not([data-theme="poster"]) #people-modal .modal-header::after,
-html:not([data-theme="poster"]) #board-modal .modal-header::after,
-html:not([data-theme="poster"]) #confirm-modal .modal-header::after,
-html:not([data-theme="poster"]) #bulk-move-modal .modal-header::after,
-html:not([data-theme="poster"]) #calendar-panel .calendar-panel-header::after {
-  content: "";
-  position: absolute;
-  left: 20px;
-  right: 20px;
-  bottom: -7px;
-  height: var(--border-width);
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .tm-meta-grid {
@@ -1129,6 +1086,43 @@ html:not([data-theme="poster"]) #calendar-panel .calendar-panel-header::after {
 }
 .comment-item .comment-head .author { font-weight: 600; color: var(--text); }
 .comment-item .comment-body { font-size: 13px; white-space: pre-wrap; }
+/* Кнопки правки и удаления комментария: правка рядом с удалением,
+   удаление прижато к правому краю */
+.comment-item .edit-btn,
+.comment-item .remove-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.comment-item .edit-btn:hover { color: var(--accent); }
+.comment-item .remove-btn { margin-left: auto; }
+.comment-item .remove-btn:hover { color: var(--danger); }
+.comment-item .edit-btn .icon,
+.comment-item .remove-btn .icon { width: 13px; height: 13px; }
+
+/* Редактор комментария: textarea растёт под текст,
+   кнопки справа, как у композера */
+.comment-editor textarea {
+  width: 100%;
+  resize: none;
+  overflow-y: hidden;
+  line-height: 1.45;
+  min-height: 44px;
+}
+.comment-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+.comment-editor-actions .btn-secondary,
+.comment-editor-actions .btn-primary { font-size: 12px; padding: 4px 10px; }
 
 .comment-composer {
   display: grid;
@@ -1958,13 +1952,6 @@ html:not([data-theme="poster"]) #calendar-panel .calendar-panel-header::after {
 }
 .dp-day:hover { border-color: var(--accent); background: var(--surface); color: var(--accent); }
 .dp-day.other-month { opacity: 0.35; }
-/* Недоступный день (раньше минимальной даты) */
-.dp-day.dp-disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-  text-decoration: line-through;
-}
-.dp-day.dp-disabled:hover { border-color: var(--border-soft); background: var(--surface-sunken); color: var(--text); }
 .dp-day.today { border-color: var(--accent-bright); font-weight: 700; }
 .dp-day.selected {
   background: var(--accent);

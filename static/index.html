@@ -86,7 +86,7 @@
 
 <!-- Sliding calendar panel -->
 <div id="calendar-overlay" class="calendar-overlay hidden"></div>
-<aside id="calendar-panel" class="calendar-panel">
+<aside id="calendar-panel" class="calendar-panel" data-header-accent>
   <div class="calendar-panel-header">
     <h3>Календарь</h3>
     <button id="calendar-close-btn" class="modal-close" title="Скрыть"><span data-icon="close"></span></button>
@@ -135,7 +135,7 @@
 
 <!-- Task detail modal -->
 <div id="task-modal" class="modal-overlay hidden">
-  <div class="modal task-modal" role="dialog" aria-modal="true" aria-labelledby="tm-heading">
+  <div class="modal task-modal" role="dialog" aria-modal="true" aria-labelledby="tm-heading" data-header-accent>
     <div class="modal-header">
       <h3 id="tm-heading">Задача</h3>
       <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>
@@ -165,13 +165,11 @@
           <span>Исполнитель</span>
           <select id="tm-assignee"></select>
         </label>
-        <label class="tm-field tm-due-field">
+        <label class="tm-field">
           <span>Срок</span>
           <span class="dp-input-wrap">
             <input id="tm-due" type="date" autocomplete="off">
           </span>
-          <!-- Появляется при попытке отправить форму со сроком в прошлом -->
-          <span id="tm-due-hint" class="tm-title-hint tm-due-hint" hidden>Срок не может быть в прошлом</span>
         </label>
         <label class="tm-field" style="grid-column: 1 / -1;">
           <span>Теги</span>
@@ -244,7 +242,7 @@
 
 <!-- People management modal -->
 <div id="people-modal" class="modal-overlay hidden">
-  <div class="modal people-modal" role="dialog" aria-modal="true">
+  <div class="modal people-modal" role="dialog" aria-modal="true" data-header-accent>
     <div class="modal-header">
       <h3>Участники</h3>
       <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>
@@ -262,7 +260,7 @@
 
 <!-- New board modal -->
 <div id="board-modal" class="modal-overlay hidden">
-  <div class="modal small-modal" role="dialog" aria-modal="true">
+  <div class="modal small-modal" role="dialog" aria-modal="true" data-header-accent>
     <div class="modal-header">
       <h3>Новая доска</h3>
       <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>
@@ -282,7 +280,7 @@
 
 <!-- Confirm dialog -->
 <div id="confirm-modal" class="modal-overlay hidden">
-  <div class="modal confirm-modal" role="alertdialog" aria-modal="true">
+  <div class="modal confirm-modal" role="alertdialog" aria-modal="true" data-header-accent>
     <div class="modal-header">
       <h3 id="confirm-title">Подтверждение</h3>
       <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>
@@ -302,7 +300,7 @@
 
 <!-- Bulk move by tag modal -->
 <div id="bulk-move-modal" class="modal-overlay hidden">
-  <div class="modal small-modal" role="dialog" aria-modal="true">
+  <div class="modal small-modal" role="dialog" aria-modal="true" data-header-accent>
     <div class="modal-header">
       <h3 id="bm-title">Массовый перенос задач</h3>
       <button class="modal-close" data-close title="Закрыть"><span data-icon="close"></span></button>

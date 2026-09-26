@@ -723,6 +723,23 @@ def add_comment(task_id):
     return jsonify(comment_dict(row)), 201
 
 
+@app.route("/api/comments/<int:comment_id>", methods=["PUT"])
+def update_comment(comment_id):
+    """Редактирование текста комментария."""
+    data = request.get_json(force=True)
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "text обязателен"}), 400
+    db = get_db()
+    row = db.execute("SELECT id FROM comments WHERE id=?", (comment_id,)).fetchone()
+    if not row:
+        return jsonify({"error": "Комментарий не найден"}), 404
+    db.execute("UPDATE comments SET text=? WHERE id=?", (text, comment_id))
+    db.commit()
+    updated = db.execute("SELECT * FROM comments WHERE id=?", (comment_id,)).fetchone()
+    return jsonify(comment_dict(updated))
+
+
 @app.route("/api/comments/<int:comment_id>", methods=["DELETE"])
 def delete_comment(comment_id):
     db = get_db()
