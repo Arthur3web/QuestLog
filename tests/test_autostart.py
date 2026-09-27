@@ -240,3 +240,30 @@ def test_launcher_falls_back_to_python_without_pythonw(monkeypatch):
     assert "pythonw.exe" not in cmd
     assert sys.executable in cmd or os.path.basename(sys.executable) in cmd
     assert "desktop.py" in cmd and "--hidden" in cmd
+
+
+# ============================================================
+# on_toggle_autostart: обработчик пункта меню трея
+# ============================================================
+
+def test_toggle_handler_switches_state(autostart_dir, capsys):
+    """Обработчик меню переключает автозапуск в противоположное состояние
+    и не печатает ничего при успехе. autostart_enabled не мокаем: состояние
+    считается по файлам tmp-папки (autostart_dir уже подменён)."""
+    was = desktop.autostart_enabled()
+    desktop.on_toggle_autostart()
+    assert desktop.autostart_enabled() != was
+
+    desktop.on_toggle_autostart()
+    assert desktop.autostart_enabled() == was
+    assert capsys.readouterr().err == "", "при успехе stderr должен быть пуст"
+
+
+def test_toggle_handler_swallows_errors(autostart_dir, monkeypatch, capsys):
+    """Сбой set_autostart не должен ронять поток трея — ошибка уходит в stderr."""
+    def broken(enable):
+        raise RuntimeError("диск переполнен")
+
+    monkeypatch.setattr(desktop, "set_autostart", broken)
+    desktop.on_toggle_autostart()  # не должно бросать
+    assert "диск переполнен" in capsys.readouterr().err
