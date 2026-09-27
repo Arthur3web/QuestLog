@@ -265,7 +265,7 @@ def set_autostart(enable):
     os.makedirs(d, exist_ok=True)
 
     if not enable:
-        for n in ("TaskBoard.lnk", "TaskBoard.bat", "taskboard.desktop"):
+        for n in ("TaskBoard.lnk", "TaskBoard.bat", "taskboard.desktop", "TaskBoard.bat.bak"):
             p = os.path.join(d, n)
             if os.path.exists(p):
                 try:
@@ -290,10 +290,19 @@ def set_autostart(enable):
             return
         except Exception:
             pass
-        # Fallback без pywin32: .bat в папке автозагрузки
+        # Fallback без pywin32: .bat в папке автозагрузки.
+        # Путь к проекту может содержать кириллицу, поэтому пишем UTF-8 и
+        # переключаем консоль в UTF-8 (chcp 65001): иначе cmd на RU-системах
+        # не исполняет путь (молча создавался пустой файл).
         bat = os.path.join(d, "TaskBoard.bat")
-        with open(bat, "w", encoding="ascii") as f:
-            f.write('@echo off\r\nstart "" ' + _launcher_command(True) + "\r\n")
+        bak = bat + ".bak"
+        if os.path.exists(bat):
+            try:
+                os.replace(bat, bak)
+            except OSError:
+                pass
+        with open(bat, "w", encoding="utf-8") as f:
+            f.write('@echo off\r\nchcp 65001 >nul\r\nstart "" ' + _launcher_command(True) + "\r\n")
     else:
         content = (
             "[Desktop Entry]\n"
