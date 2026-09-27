@@ -823,16 +823,36 @@ html .tm-title-input.tm-invalid::placeholder {
 .tm-title-hint[hidden] { display: none; }
 
 /* Акцентная шапка — единая система для всех окон ретро-темы:
-   синий заголовок и синяя линия под шапкой, на обычной поверхности.
-   Окно подключается атрибутом data-header-accent в разметке.
-   Плакат перекрашивает свои шапки по-своему и эти правила не задевает. */
+   терминальная полоса «inverse video» — сплошная синяя шапка с кремовым
+   заголовком капслоком, как строка заголовка окна в классических TUI
+   (Turbo Vision, Norton Commander). Даёт чёткую иерархию: полоса = рамка
+   окна, крупный чёрный заголовок в теле = контент. Окно подключается
+   атрибутом data-header-accent в разметке. Плакат перекрашивает свои
+   шапки по-своему (ниже) и эти правила не задевает. */
 html:not([data-theme="poster"]) [data-header-accent] .modal-header,
 html:not([data-theme="poster"]) [data-header-accent] .calendar-panel-header {
-  border-bottom-color: var(--accent);
+  background: var(--accent);
+  border-bottom: var(--border-width) solid var(--border-strong);
+  padding: 12px 16px;
 }
 html:not([data-theme="poster"]) [data-header-accent] .modal-header h3,
 html:not([data-theme="poster"]) [data-header-accent] .calendar-panel-header h3 {
-  color: var(--accent);
+  color: var(--on-accent);
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+html:not([data-theme="poster"]) [data-header-accent] .modal-header .modal-sub {
+  color: var(--on-accent);
+  opacity: 0.72;
+}
+html:not([data-theme="poster"]) [data-header-accent] .modal-close {
+  color: var(--on-accent);
+}
+html:not([data-theme="poster"]) [data-header-accent] .modal-close:hover {
+  background: var(--accent-hover);
+  border-color: var(--on-accent);
+  color: var(--on-accent);
 }
 
 .tm-meta-grid {
