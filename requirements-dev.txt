@@ -1,0 +1,4 @@
+# Зависимости разработки (тесты и измерение покрытия) — поверх requirements.txt:
+#   pip install -r requirements.txt -r requirements-dev.txt
+-r requirements.txt
+coverage>=7.0
