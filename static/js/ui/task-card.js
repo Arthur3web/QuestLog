@@ -54,26 +54,34 @@ export function renderCard(task) {
     ? `<span class="card-time${task.timer_running ? " timer-running" : ""}" title="${escapeHtml(task.timer_running ? "Идёт таймер" : `Затрачено: ${formatDuration(task.time_spent_seconds)}`)}">${ICONS.timer}<span>${formatDurationShort(task.time_spent_seconds)}</span></span>`
     : "";
 
-  // Срок — отдельной строкой под заголовком/тегами, время уходит вправо.
-  const dueHtml = task.due_date
-    ? `<div class="card-due-row">
-         <span class="card-due ${dueClass}"><span class="card-due-label">Срок:</span> ${formatDate(task.due_date)}</span>
-       </div>`
+  // Приоритет — сигнальные штрихи слева у заголовка (кроме «Обычного»):
+  // число штрихов кодирует важность (3 = высокий, 1 = низкий), читается
+  // без знания цветового кода, цвет — второй канал. Значение в tooltip.
+  const PRIORITY_BARS = { high: 3, medium: 2, low: 1 };
+  const bars = PRIORITY_BARS[task.priority] || 0;
+  const priorityHtml = bars
+    ? `<span class="priority-bars priority-${task.priority}" title="Приоритет: ${PRIORITY_LABEL[task.priority] || task.priority}">${"<i></i>".repeat(bars)}</span>`
+    : "";
+  // Срок — компактно «до 18.09», у завершённых задач (Done/Cancelled)
+  // скрываем: закрытая задача уже не «горит» и не «просрочена».
+  const duePart = task.due_date && !taskDone
+    ? `<div class="card-due-row"><span class="card-due ${dueClass}">до ${formatDate(task.due_date)}</span></div>`
     : "";
 
   card.innerHTML = `
-    <div class="card-title">${escapeHtml(task.title)}</div>
+    <div class="card-title">${priorityHtml}${escapeHtml(task.title)}</div>
     ${tagsHtml}
-    ${dueHtml}
+    ${duePart}
     <div class="card-footer">
-      <span class="priority-dot ${task.priority}"></span>
-      <span class="priority-label">${PRIORITY_LABEL[task.priority] || task.priority}</span>
-      <span class="spacer"></span>
-      ${task.subtasks_total ? `<span class="mini-meta">${ICONS.subtasks}<span>${task.subtasks_done}/${task.subtasks_total}</span></span>` : ""}
-      ${task.comments_count ? `<span class="mini-meta">${ICONS.comment}<span>${task.comments_count}</span></span>` : ""}
-      ${task.attachments_count ? `<span class="mini-meta">${ICONS.attachment}<span>${task.attachments_count}</span></span>` : ""}
-      ${timeHtml}
-      ${assigneeHtml}
+      <div class="card-meta">
+        ${task.subtasks_total ? `<span class="mini-meta${task.subtasks_done === task.subtasks_total ? " all-done" : ""}" title="Подзадачи: ${task.subtasks_done} из ${task.subtasks_total}">${ICONS.subtasks}<span>${task.subtasks_done}/${task.subtasks_total}</span></span>` : ""}
+        ${task.comments_count ? `<span class="mini-meta" title="Комментарии: ${task.comments_count}">${ICONS.comment}<span>${task.comments_count}</span></span>` : ""}
+        ${task.attachments_count ? `<span class="mini-meta" title="Вложения: ${task.attachments_count}">${ICONS.attachment}<span>${task.attachments_count}</span></span>` : ""}
+      </div>
+      <div class="card-side">
+        ${timeHtml}
+        ${assigneeHtml}
+      </div>
     </div>
   `;
 

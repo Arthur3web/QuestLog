@@ -87,14 +87,17 @@ export function formatDuration(totalSeconds) {
   return parts.join(" ");
 }
 
-// Короткая версия для карточек: «1д 3ч» / «1ч 2м» / «2м» / «3с»
+// Короткая версия для карточек: «1д 3ч» / «1ч 2м» / «2м» / «3с».
+// Второй компонент показывается только если он «весит» не меньше 10 —
+// иначе в футере карточки «10ч 37м» не влезает в строку и переносится
+// на второй ряд (цифра со своим «ч/м» уезжает вниз).
 export function formatDurationShort(totalSeconds) {
   const s = Math.max(0, Math.floor(totalSeconds || 0));
   const d = Math.floor(s / 86400);
   const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
-  if (d) return h ? `${d}д ${h}ч` : `${d}д`;
-  if (h) return m ? `${h}ч ${m}м` : `${h}ч`;
+  if (d) return h >= 10 ? `${d}д ${h}ч` : `${d}д`;
+  if (h) return m >= 10 ? `${h}ч ${m}м` : `${h}ч`;
   if (m) return `${m}м`;
   return `${s}с`;
 }

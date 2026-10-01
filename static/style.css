@@ -500,7 +500,11 @@ body {
   font-size: 13.5px;
   font-weight: 500;
   color: var(--text);
-  margin-bottom: 6px;
+  /* Многострочные названия в плакат-теме с рыхлым line-height сливались
+     с тегами: межстрочный интервал был равен отступу до следующего блока.
+     Чуть tighter межстрочный + больший отступ после блока разделяют их */
+  line-height: 1.3;
+  margin-bottom: 10px;
   word-break: break-word;
 }
 
@@ -508,7 +512,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 .tag-chip {
   font-size: 11px;
@@ -519,14 +523,51 @@ body {
   border-radius: 0;
 }
 
+/* Футер — две группы по краям: слева счётчики (что внутри), справа
+   время и исполнитель (кто и сколько). Между ними — эластичный воздух,
+   поэтому каждая группа читается как единое целое */
 .card-footer {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 10px;
   color: var(--text-faint);
   font-size: 11.5px;
 }
+.card-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.card-side { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }/* Приоритет — «сигнальные штрихи» слева от заголовка: столбик из 1–3
+   коротких горизонтальных полосок. Число полосок = важность (3/2/1),
+   читается без знания цветов; цвет темы — второй канал. Не путать с
+   .priority-dot — той точкой в календаре и списках вне карточек */
+.priority-bars {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.priority-bars i {
+  display: block;
+  width: 9px;
+  height: 3px;
+  border-radius: 1px;
+  background: currentColor;
+}
+/* Цвет берём из палитры приоритетов; штрихи чуть мягче точки */
+.priority-bars.priority-high { color: var(--priority-high); }
+.priority-bars.priority-medium { color: var(--priority-medium); }
+.priority-bars.priority-low { color: var(--priority-low); opacity: 0.8; }
+.priority-bars i { width: 9px; }
+/* Ступенчатая длина: нижний штрих длиннее — столбик читается как «диаграмма» */
+.priority-bars i:nth-child(1) { width: 5px; }
+.priority-bars i:nth-child(2) { width: 7px; }
+.priority-bars i:nth-child(3) { width: 9px; }
 
+/* Строка срока: только срок, слева (приоритет переехал к заголовку) */
+.card-due-row { justify-content: flex-start; }
+
+/* Точка-приоритет осталась для списков вне карточек (календарный день,
+   поиск): на карточке её заменила левая полоса */
 .priority-dot {
   width: 8px;
   height: 8px;
@@ -624,6 +665,12 @@ body {
 .btn-danger .icon { width: 14px; height: 14px; margin-right: 5px; }
 
 .mini-meta { display: flex; align-items: center; gap: 3px; }
+/* Все подзадачи закрыты — счётчик подсвечивается цветом «сделано»:
+   карточка визуально сообщает о завершённости без чтения цифр */
+.mini-meta.all-done { color: var(--done); }
+/* Время и счётчики не переносятся на второй ряд: короче — обрезка,
+   точная длительность всё равно в подсказке и в модалке */
+.mini-meta, .card-time { white-space: nowrap; }
 
 /* ============================================================
    Modals
@@ -870,6 +917,9 @@ html:not([data-theme="poster"]) [data-header-accent] .modal-close:hover {
   color: var(--text-muted);
 }
 .tm-desc-field { margin-bottom: 4px; }
+/* Лейбл «Описание» визуально принадлежит своему textarea, а не тегам выше: 
+   увеличиваем его отступ от предыдущего блока через внутренний gap поля */
+.tm-desc-field { gap: 5px; }
 /* Скрытое поле в модалке (напр. тег в одиночном переносе) */
 .tm-field.hidden { display: none; }
 .tm-desc-field textarea {
@@ -883,7 +933,9 @@ html:not([data-theme="poster"]) [data-header-accent] .modal-close:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 6px 0 0;
+  /* Отступ снизу обязателен: сразу за пресетами идёт лейбл «Описание» —
+     без него лейбл прилипает к чипам (выглядит как часть той же группы) */
+  margin: 6px 0 16px;
 }
 .tag-preset-chip {
   font-size: 11.5px;
