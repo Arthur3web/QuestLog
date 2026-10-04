@@ -1710,7 +1710,8 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
   color: var(--text-muted);
   font-family: var(--font);
   font-size: 12px;
-  padding: 6px 4px;
+  /* Отступ со всех сторон: подпись не должна липнуть к рамке вкладки. */
+  padding: 9px 10px;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
@@ -1973,12 +1974,19 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
 }
 .project-form-row .footer-actions {
   display: flex;
-  align-items: center;
+  flex-wrap: nowrap;
+  align-items: stretch;
   gap: 8px;
   margin-left: auto;
   flex: 0 0 auto;
 }
-.project-form-row .btn-primary, .project-form-row .btn-secondary { padding: 6px 11px; font-size: 12px; }
+.project-form-row .btn-primary, .project-form-row .btn-secondary {
+  padding: 6px 11px;
+  font-size: 12px;
+  /* Одинаковая высота у обеих кнопок: «Отмена» и «Добавить» встают вровень. */
+  line-height: 1.35;
+  white-space: nowrap;
+}
 
 /* --- Документы --- */
 .project-upload { display: block; text-align: center; }
@@ -2004,31 +2012,43 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
   width: 26px;
   height: 26px;
   padding: 0;
-  border: var(--border-width) solid var(--border-soft);
+  /* Знак не должен перетягивать внимание с названия файла: без рамки и
+     фона, в покое он того же приглушённого цвета, что и подпись внизу. */
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
   border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text-muted);
+  background: transparent;
+  color: var(--text-faint);
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  transition: color 0.15s, background 0.15s;
 }
-.doc-open:hover { border-color: var(--accent); color: var(--accent); }
+.doc-open:hover { background: var(--surface); color: var(--accent); }
 .doc-open .icon { width: 14px; height: 14px; }
+
+/* Файл, который можно только скачать: знак без действия. Скачивание
+   уже есть справа отдельной кнопкой, поэтому второй раз его предлагать
+   не нужно — и рамки кнопки тоже не нужно. */
+.doc-file-mark {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  color: var(--text-faint);
+}
+.doc-file-mark .icon { width: 15px; height: 15px; }
 .doc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .doc-name {
-  border: none;
-  background: transparent;
-  padding: 0;
-  text-align: left;
   font-family: var(--font);
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--accent);
-  cursor: pointer;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.doc-name:hover { color: var(--accent-bright); text-decoration: underline; }
 .doc-meta {
   font-size: 10.5px;
   color: var(--text-faint);
@@ -2049,9 +2069,18 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
 .doc-rename-input:focus { outline: none; }
 .doc-actions { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
 .doc-actions a.preview-btn { text-decoration: none; }
-.doc-actions .remove-btn {
+/* Три кнопки справа — одна на всех: одинаковый размер, рамка и цвет.
+   appearance:none обязателен: без него движок окна приложения может
+   подрисовать системный фон кнопки, и крестик выглядит выбитым. */
+.doc-actions .preview-btn, .doc-actions .remove-btn {
+  appearance: none;
+  -webkit-appearance: none;
   display: flex;
-  padding: 2px;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
   border: none;
   background: transparent;
   color: var(--text-faint);
@@ -2059,6 +2088,7 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
   border-radius: var(--radius-sm);
   transition: color 0.15s;
 }
+.doc-actions .preview-btn:hover { color: var(--accent); }
 .doc-actions .remove-btn:hover { color: var(--danger); }
 .doc-actions .icon { width: 14px; height: 14px; }
 
@@ -3240,7 +3270,8 @@ html[data-theme="poster"] .project-digest {
   border-color: var(--poster-ink);
   border-left-color: var(--accent);
 }
-html[data-theme="poster"] .doc-open { border-color: var(--poster-ink); }
+html[data-theme="poster"] .doc-open { color: var(--text-muted); }
+html[data-theme="poster"] .doc-open:hover { color: var(--accent); }
 html[data-theme="poster"] .public-card {
   background: var(--poster-fiber), var(--surface);
   border-color: var(--poster-ink);

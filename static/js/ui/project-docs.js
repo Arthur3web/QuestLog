@@ -126,15 +126,15 @@ function openDoc(doc) {
 // Переименование прямо в строке (как у подзадач и комментариев)
 // ------------------------------------------------------------
 function startRename(doc, row) {
-  const nameButton = row.querySelector(".doc-name");
-  if (!nameButton || row.querySelector(".doc-rename-input")) return;
+  const nameNode = row.querySelector(".doc-name");
+  if (!nameNode || row.querySelector(".doc-rename-input")) return;
 
   const input = document.createElement("input");
   input.type = "text";
   input.className = "doc-rename-input";
   input.value = doc.filename;
   input.spellcheck = false;
-  nameButton.replaceWith(input);
+  nameNode.replaceWith(input);
   input.focus();
   input.select();
 
@@ -171,11 +171,17 @@ function renderRow(doc) {
   row.className = "doc-item";
   const canPreview = Boolean(doc.preview);
 
+  // Слева — только то, что действительно открывается: у превьюиваемых файлов
+  // это кнопка-глаз. Скачивание уже есть справа отдельной кнопкой, поэтому
+  // для файлов без превью слева стоит знак «файл» — без рамки и без курсора.
+  const mark = canPreview
+    ? `<button type="button" class="doc-open" title="Открыть в приложении" aria-label="Открыть">${ICONS.eye}</button>`
+    : `<span class="doc-file-mark" title="Формат приложение не показывает — остаётся скачать">${ICONS.file}</span>`;
+
   row.innerHTML = `
-    <button type="button" class="doc-open" title="${canPreview ? "Открыть в приложении" : "Скачать файл"}"
-            aria-label="${canPreview ? "Открыть" : "Скачать"}">${ICONS[canPreview ? "eye" : "download"]}</button>
+    ${mark}
     <div class="doc-main">
-      <button type="button" class="doc-name" title="${escapeHtml(doc.filename)}">${escapeHtml(doc.filename)}</button>
+      <span class="doc-name" title="${escapeHtml(doc.filename)}">${escapeHtml(doc.filename)}</span>
       <span class="doc-meta">${escapeHtml(previewLabel(doc.preview))} · ${escapeHtml(formatSize(doc.size_bytes))} · ${escapeHtml(formatStamp(doc.updated_at))}</span>
     </div>
     <div class="doc-actions">
@@ -185,8 +191,7 @@ function renderRow(doc) {
     </div>
   `;
 
-  row.querySelector(".doc-name").addEventListener("click", () => openDoc(doc));
-  row.querySelector(".doc-open").addEventListener("click", () => openDoc(doc));
+  if (canPreview) row.querySelector(".doc-open").addEventListener("click", () => openDoc(doc));
   row.querySelector(".doc-rename").addEventListener("click", () => startRename(doc, row));
   row.querySelector(".doc-delete").addEventListener("click", async () => {
     const ok = await confirmDialog(
