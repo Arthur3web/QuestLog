@@ -730,6 +730,14 @@ body {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* Уведомление — отдельная анимация: transform в modal-in затирает
+   центрирование translateX(-50%), и оно сначала появлялось не по центру,
+   а потом дёргалось на место. */
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 10px) scale(0.985); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -1426,7 +1434,7 @@ a.btn-secondary, a.btn-primary { display: inline-block; text-decoration: none; }
   font-size: 13px;
   z-index: 100;
   box-shadow: var(--shadow-modal);
-  animation: modal-in 0.18s ease-out;
+  animation: toast-in 0.18s ease-out;
 }
 .toast.hidden { display: none; }
 
