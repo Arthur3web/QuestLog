@@ -1710,15 +1710,17 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
 .project-tabs {
   display: flex;
   gap: 4px;
-  padding: 10px 16px 0;
+  /* Отступ снизу такой же, как сверху: вкладки не должны липнуть к линии. */
+  padding: 10px 16px;
   border-bottom: var(--border-width) solid var(--border-soft);
 }
 .project-tab {
   flex: 1;
   border: var(--border-width) solid var(--border-soft);
-  border-bottom: none;
   background: var(--surface-sunken);
-  color: var(--text-muted);
+  /* Неактивные вкладки приглушены: выбранная должна выигрывать не только
+     заливкой, но и тоном подписи. */
+  color: var(--text-faint);
   font-family: var(--font);
   font-size: 12px;
   /* Отступ со всех сторон: подпись не должна липнуть к рамке вкладки. */
@@ -1728,9 +1730,14 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 .project-tab:hover { border-color: var(--accent); color: var(--accent); }
+/* Текущая вкладка выглядит как выбранный фильтр в календаре: рамка
+   цветом акцента, лёгкая заливка его оттенком и жирная подпись. Это
+   тот же приём, что уже работает в приложении, и он заметен сразу.
+   Рамка остаётся замкнутой: выделения и без снятой нижней границы
+   достаточно, а разомкнутая вкладка выглядит как недорисованная. */
 .project-tab.active {
-  background: var(--surface);
-  border-color: var(--border);
+  border-color: var(--accent);
+  background: var(--accent-glow);
   color: var(--accent);
   font-weight: 700;
 }
@@ -2264,7 +2271,7 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
    не видны, но рамка и отступы остаются те же. */
 @media (max-width: 480px) {
   .project-drawer { width: 100vw; }
-  .project-tabs { padding: 8px 10px 0; }
+  .project-tabs { padding: 8px 10px; }
   .project-drawer-body { padding: 12px 10px 18px; }
 }
 
