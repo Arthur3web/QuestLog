@@ -223,7 +223,10 @@
       <div class="project-pane-head">
         <h4>Что происходило</h4>
       </div>
-      <p id="events-digest" class="project-digest" hidden></p>
+      <div id="events-digest" class="project-digest" hidden>
+        <p class="project-digest-text" id="events-digest-text"></p>
+        <button id="events-digest-copy" class="preview-btn project-digest-copy" type="button" title="Скопировать пересказ" aria-label="Скопировать пересказ" data-icon="copy"></button>
+      </div>
       <p class="hint-text">История пишется сама: переносы задач, правки, загрузка документов, обновления и настройки доступа. Кто это сделал — выбранный внизу участник.</p>
       <ol id="events-list" class="project-events"></ol>
     </section>

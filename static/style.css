@@ -1801,14 +1801,25 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
 
 /* Пересказ за период: тише списка, но читается первым. */
 .project-digest {
+  position: relative;
   margin: 0 0 10px;
-  padding: 9px 11px;
+  padding: 9px 40px 9px 11px;
   border: var(--border-width) solid var(--border-soft);
   border-left: 3px solid var(--accent);
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
   font-size: 13px;
   line-height: 1.45;
+}
+.project-digest-text { margin: 0; }
+/* Копирование — значком в углу: текст остаётся в покое, а жест всегда
+   под рукой и не занимает места, как вторая кнопка. */
+.project-digest-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
 }
 
 /* Второстепенное действие в той же строке — ссылка, а не вторая кнопка. */
@@ -2350,6 +2361,11 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
   color: var(--text-muted);
 }
 .report-table .num { text-align: right; white-space: nowrap; }
+.report-table .report-empty { color: var(--text-faint); text-align: center; padding: 10px 8px; }
+
+/* Пояснение к разделу и причины зависания — тише самого заголовка. */
+.report-note { margin: -4px 0 10px; font-size: 12px; color: var(--text-faint); line-height: 1.45; }
+.report-stuck-reasons { display: block; font-size: 11px; color: var(--danger); }
 
 .report-chips { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .report-chip-row { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; }
@@ -3270,6 +3286,7 @@ html[data-theme="poster"] .project-digest {
   border-color: var(--poster-ink);
   border-left-color: var(--accent);
 }
+html[data-theme="poster"] .project-digest-copy { color: var(--text-muted); }
 html[data-theme="poster"] .doc-open { color: var(--text-muted); }
 html[data-theme="poster"] .doc-open:hover { color: var(--accent); }
 html[data-theme="poster"] .public-card {

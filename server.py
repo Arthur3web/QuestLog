@@ -83,6 +83,9 @@ PRIORITY_LABELS = {"high": "Высокий", "medium": "Средний", "normal
 # Темы оформления приложения: их же принимает страница отчёта через ?theme=.
 THEMES = ("retro", "poster")
 
+# Сколько дней без движения считать зависанием.
+STUCK_STALE_DAYS = 14
+
 FIELD_LABELS = {
     "title": "название",
     "description": "описание",
@@ -646,6 +649,54 @@ def list_project_events(board_id):
 # ------------------------------------------------------------
 # Досье проекта: всё, что известно о проекте, одной страницей
 # ------------------------------------------------------------
+def _stuck_tasks(tasks, columns, users):
+    """Зависшие задачи: по ним видно, где проект буксует.
+
+    Зависшая — не в завершающей колонке и при этом хотя бы одно из трёх:
+    без исполнителя, срок уже прошёл, либо её не трогали дольше двух недель.
+    """
+    today = datetime.date.today()
+    stale_before = (
+        datetime.datetime.now() - datetime.timedelta(days=STUCK_STALE_DAYS)
+    ).isoformat(timespec="seconds")
+    done_ids = {c["id"] for c in columns if c["is_done_state"]}
+    column_names = {c["id"]: c["name"] for c in columns}
+
+    result = []
+    for task in tasks:
+        if task["column_id"] in done_ids:
+            continue
+        reasons = []
+        if not task["assignee_id"] or task["assignee_id"] not in users:
+            reasons.append("без исполнителя")
+        if task["due_date"]:
+            try:
+                if datetime.date.fromisoformat(task["due_date"]) < today:
+                    reasons.append("срок прошёл")
+            except ValueError:
+                pass  # некорректный срок — просто не считаем его прошедшим
+        if (task["updated_at"] or "") < stale_before:
+            reasons.append(f"без движения {STUCK_STALE_DAYS} дн.")
+        if not reasons:
+            continue
+        result.append(
+            {
+                "id": task["id"],
+                "title": task["title"],
+                "column": column_names.get(task["column_id"], ""),
+                "assignee": users[task["assignee_id"]]["name"]
+                if task["assignee_id"] in users
+                else "Без исполнителя",
+                "due_date": task["due_date"] or "",
+                "updated_at": task["updated_at"] or "",
+                "reasons": reasons,
+            }
+        )
+    # Сначала те, у которых причина серьёзнее: сортируем по числу причин.
+    result.sort(key=lambda t: (-len(t["reasons"]), t["updated_at"]))
+    return result
+
+
 def _project_report_data(board_id):
     """Собирает данные отчёта. Общая часть для JSON и HTML-страницы."""
     db = get_db()
@@ -711,6 +762,7 @@ def _project_report_data(board_id):
             tag_counts[tag] = tag_counts.get(tag, 0) + 1
 
     done_count = sum(1 for t in tasks if t["column_id"] in done_columns)
+    stuck = _stuck_tasks(tasks, columns, users)
     documents = db.execute(
         "SELECT * FROM project_documents WHERE board_id=? ORDER BY created_at, id", (board_id,)
     ).fetchall()
@@ -741,6 +793,7 @@ def _project_report_data(board_id):
             "running_timers": sum(1 for v in time_by_task.values() if v[1]),
         },
         "by_column": by_column,
+        "stuck": stuck,
         "by_assignee": sorted(by_assignee.values(), key=lambda e: (-e["tasks"], e["name"])),
         "by_priority": by_priority,
         "top_tags": sorted(
@@ -802,6 +855,16 @@ def _report_page(board_id, theme="retro", standalone=False):
         """Для таблиц: у нуля вместо слов прочерк — колонка не должна
         разрастаться из-за одного «меньше минуты»."""
         return "—" if int(seconds or 0) <= 0 else duration_short(seconds)
+
+    stuck_rows = "".join(
+        f"""      <tr>
+        <td>{esc(t['title'])}<span class="report-stuck-reasons">{esc(', '.join(t['reasons']))}</span></td>
+        <td>{esc(t['assignee'])}</td>
+        <td>{esc(t['column'])}</td>
+        <td class="num">{esc(t['due_date'][10:].replace('-', '.') if t['due_date'] else '—')}</td>
+      </tr>"""
+        for t in data["stuck"]
+    ) or '      <tr><td colspan="4" class="report-empty">Зависших задач нет</td></tr>'
 
     max_column = max((c["total"] for c in data["by_column"]), default=0) or 1
     column_rows = "".join(
@@ -890,6 +953,15 @@ def _report_page(board_id, theme="retro", standalone=False):
     <section class="report-section">
       <h2>Задачи по колонкам</h2>
       <ul class="report-bars">{column_rows}</ul>
+    </section>
+
+    <section class="report-section">
+      <h2>Зависшие задачи</h2>
+      <p class="report-note">Без исполнителя, с просроченным сроком или без движения больше {STUCK_STALE_DAYS} дней — всё, что мешает проекту идти.</p>
+      <table class="report-table">
+        <thead><tr><th>Задача</th><th>Исполнитель</th><th>Колонка</th><th class="num">срок</th></tr></thead>
+        <tbody>{stuck_rows}</tbody>
+      </table>
     </section>
 
     <section class="report-section report-two-col">
@@ -1185,6 +1257,19 @@ def download_project_dossier(board_id):
         changelog = _project_changelog_text(updates)
         archive.writestr("обновления.md", changelog or "Обновлений пока нет.")
         archive.writestr("события.md", _events_markdown(events, users))
+        archive.writestr(
+            "задачи.txt",
+            _tasks_plain_text(
+                board,
+                db.execute(
+                    "SELECT * FROM columns WHERE board_id=? ORDER BY position", (board_id,)
+                ).fetchall(),
+                db.execute(
+                    "SELECT * FROM tasks WHERE board_id=? ORDER BY created_at", (board_id,)
+                ).fetchall(),
+                users,
+            ),
+        )
         taken = set()
         folder = document_dir(board_id)
         for doc in documents:
@@ -1201,6 +1286,36 @@ def download_project_dossier(board_id):
         as_attachment=True,
         download_name=f"{safe_document_name(board['name']) or 'проект'}-досье.zip",
     )
+
+
+def _tasks_plain_text(board, columns, tasks, users):
+    """Задачи по колонкам обычным текстом — чтобы вставить в письмо.
+
+    В письме не нужен ни HTML, ни архив: достаточно списка, который
+    читается в любом редакторе, даже в блокноте. users — словарь
+    «id участника → имя», тот же, что и для ленты событий.
+    """
+    today = datetime.date.today()
+    lines = [f"{board['name']} — задачи на {today.strftime('%d.%m.%Y')}", ""]
+    for column in columns:
+        in_column = [t for t in tasks if t["column_id"] == column["id"]]
+        if not in_column:
+            continue
+        lines.append(f"{column['name']} ({len(in_column)})")
+        for task in in_column:
+            parts = []
+            assignee = users.get(task["assignee_id"])
+            parts.append(assignee or "без исполнителя")
+            if task["due_date"]:
+                parts.append(f"до {task['due_date'][8:10]}.{task['due_date'][5:7]}")
+            if task["priority"] in ("high", "medium"):
+                parts.append("срочно" if task["priority"] == "high" else "средний")
+            lines.append(f"- {task['title']} ({', '.join(parts)})")
+        lines.append("")
+    if len(lines) <= 2:
+        lines.append("Задач пока нет.")
+        lines.append("")
+    return "\n".join(lines)
 
 
 def _events_markdown(events, users):

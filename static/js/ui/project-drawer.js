@@ -13,6 +13,7 @@
 import { API } from "../core/api.js";
 import { byId } from "../core/dom.js";
 import { showToast } from "../core/toast.js";
+import { copyText } from "../core/clipboard.js";
 import { isModalOpen } from "../core/modal.js";
 import { currentBoardId } from "../domain/store.js";
 import { onStateLoaded } from "../domain/state-loader.js";
@@ -195,22 +196,7 @@ async function applyAccess(isPublic, chosenRadio) {
 
 async function copyShareLink() {
   const field = byId("project-share-url");
-  try {
-    // navigator.clipboard работает только в защищённом контексте
-    // (https или localhost); в остальных случаях копируем полем ввода.
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(field.value);
-    } else {
-      field.removeAttribute("readonly");
-      field.select();
-      document.execCommand("copy");
-      field.setAttribute("readonly", "readonly");
-    }
-    showToast("Ссылка скопирована");
-  } catch (e) {
-    field.select();
-    showToast("Скопируйте ссылку вручную");
-  }
+  showToast(await copyText(field.value) ? "Ссылка скопирована" : "Скопируйте ссылку вручную");
 }
 
 // ------------------------------------------------------------

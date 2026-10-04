@@ -8,7 +8,9 @@
 
 import { API } from "../core/api.js";
 import { byId, escapeHtml } from "../core/dom.js";
+import { copyText } from "../core/clipboard.js";
 import { formatDateTime } from "../core/format.js";
+import { showToast } from "../core/toast.js";
 import { userById } from "../domain/store.js";
 
 // Иконка по типу события — та же логика, что у точек в ленте отчёта.
@@ -45,8 +47,9 @@ export function renderProjectEvents(pane, context) {
   // Пересказ за период — над списком: сначала «что изменилось»,
   // потом детали того, как именно.
   const digest = byId("events-digest");
-  if (digest) {
-    digest.textContent = context.data.digest || "";
+  const digestText = byId("events-digest-text");
+  if (digest && digestText) {
+    digestText.textContent = context.data.digest || "";
     digest.hidden = !context.data.digest;
   }
 
@@ -77,4 +80,10 @@ export function renderProjectEvents(pane, context) {
 export function bindProjectEvents() {
   // Отдельной кнопки обновления нет: вкладка и так перечитывает данные
   // при каждом открытии, а лишний контрол только занимал бы место.
+
+  byId("events-digest-copy").addEventListener("click", async () => {
+    const text = byId("events-digest-text").textContent.trim();
+    if (!text) return;
+    showToast(await copyText(text) ? "Пересказ скопирован" : "Скопируйте текст вручную");
+  });
 }

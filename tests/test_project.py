@@ -834,3 +834,95 @@ def test_digest_uses_russian_plural_forms():
     assert server._plural_count(5, "задача", "задачи", "задач") == "5 задач"
     assert server._plural_count(11, "задача", "задачи", "задач") == "11 задач"
     assert server._plural_count(21, "задача", "задачи", "задач") == "21 задача"
+
+
+# ------------------------------------------------------------
+# Зависшие задачи и текстовый список для письма
+# ------------------------------------------------------------
+def make_task(client, board_id, column_id, title, **fields):
+    return client.post(
+        f"/api/tasks",
+        json={"board_id": board_id, "column_id": column_id, "title": title, **fields},
+    ).get_json()
+
+
+def test_report_lists_stuck_tasks(client, board):
+    """Зависшая — не завершённая и с одной из трёх причин."""
+    board_id, cols = board
+    client.post(f"/api/boards/{board_id}/updates", json={"title": "Релиз"})
+
+    someone = client.post("/api/users", json={"name": "Исполнитель"}).get_json()["id"]
+
+    make_task(client, board_id, cols["Todo"], "Без исполнителя")
+    make_task(
+        client, board_id, cols["Todo"], "Просроченная",
+        due_date="2020-01-01", assignee_id=someone,
+    )
+    # Есть исполнитель, нет срока, правка свежая — зависания нет.
+    make_task(client, board_id, cols["Todo"], "Живая", assignee_id=someone)
+    # Срок в будущем, но исполнителя нет — это тоже причина.
+    make_task(client, board_id, cols["Todo"], "Будущая", due_date="2999-01-01")
+
+    stuck = client.get(f"/api/boards/{board_id}/report").get_json()["stuck"]
+    titles = [t["title"] for t in stuck]
+    assert "Без исполнителя" in titles
+    assert "Просроченная" in titles
+    assert "Живая" not in titles, "задача без исполнителя, но созданная только что, не зависла"
+    assert "Будущая" in titles, "без исполнителя — тоже причина"
+
+    reasons = {t["title"]: t["reasons"] for t in stuck}
+    assert reasons["Без исполнителя"] == ["без исполнителя"]
+    assert "срок прошёл" in reasons["Просроченная"]
+    assert reasons["Просроченная"] == ["срок прошёл"]
+    stuck_with_owner = [t for t in stuck if t["title"] == "Просроченная"]
+    assert stuck_with_owner[0]["assignee"] == "Исполнитель"
+
+
+def test_stuck_excludes_done_and_counts_stale(client, board):
+    board_id, cols = board
+    done = make_task(client, board_id, cols["Todo"], "Закрытая", assignee_id=None)
+    client.post(f"/api/tasks/{done['id']}/move", json={"column_id": cols["Done"], "position": 0})
+    make_task(client, board_id, cols["Todo"], "Свежая", assignee_id=None)
+
+    # Отматываем время задачи назад — теперь она «без движения».
+    conn = sqlite3.connect(server.DB_PATH)
+    old = "2000-01-01T00:00:00"
+    conn.execute("UPDATE tasks SET updated_at=? WHERE id=(SELECT MAX(id) FROM tasks)", (old,))
+    conn.commit()
+    conn.close()
+
+    titles = [t["title"] for t in client.get(f"/api/boards/{board_id}/report").get_json()["stuck"]]
+    assert "Закрытая" not in titles, "задача в завершающей колонке зависшей быть не может"
+    assert "Свежая" in titles
+
+
+def test_dossier_contains_plain_task_list(client, board):
+    """Текстовый файл нужен, чтобы вставить список в письмо без HTML."""
+    board_id, cols = board
+    someone = client.post("/api/users", json={"name": "Мария"}).get_json()["id"]
+    make_task(
+        client, board_id, cols["Todo"], "Сверстать сетку",
+        assignee_id=someone, due_date="2026-11-01", priority="high",
+    )
+    make_task(client, board_id, cols["Done"], "Отправить заявку")
+
+    with zipfile.ZipFile(io.BytesIO(client.get(f"/api/boards/{board_id}/dossier").data)) as archive:
+        assert "задачи.txt" in archive.namelist()
+        text = archive.read("задачи.txt").decode("utf-8")
+
+    assert "Todo" in text and "Сверстать сетку" in text
+    assert "Отправить заявку" in text
+    # У задачи с исполнителем печатается его имя, срок и срочность.
+    assert "Мария" in text
+    assert "до 01.11" in text
+    assert "срочно" in text
+    assert "без исполнителя" in text, "у задачи без исполнителя это написано явно"
+    assert "<" not in text and ">" not in text, "это обычный текст, а не разметка"
+
+
+def test_plain_task_list_marks_missing_assignee(client, board):
+    board_id, cols = board
+    make_task(client, board_id, cols["Todo"], "Без исполнителя")
+    with zipfile.ZipFile(io.BytesIO(client.get(f"/api/boards/{board_id}/dossier").data)) as archive:
+        text = archive.read("задачи.txt").decode("utf-8")
+    assert "без исполнителя" in text
