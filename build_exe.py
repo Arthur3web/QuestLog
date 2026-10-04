@@ -30,6 +30,8 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
+from console_out import use_utf8  # noqa: E402  — соседний модуль, путь выше
 APP_NAME = "QuestLog"
 ENTRY = os.path.join(ROOT, "desktop.py")
 
@@ -40,6 +42,8 @@ def fail(message):
 
 
 def main():
+    use_utf8()
+
     if not os.path.exists(ENTRY):
         fail(f"не найден {ENTRY}")
 

@@ -25,6 +25,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 JS_ROOT = ROOT / "static" / "js"
+sys.path.insert(0, str(ROOT / "scripts"))
+from console_out import use_utf8  # noqa: E402  — соседний модуль, путь выше
 HOOK_SRC = ROOT / "scripts" / "pre-commit"
 HOOK_DST = ROOT / ".git" / "hooks" / "pre-commit"
 
@@ -97,6 +99,8 @@ def check(node: str, path: Path) -> str | None:
 
 
 def main() -> int:
+    use_utf8()
+
     if "--install-hooks" in sys.argv:
         return install_hooks()
 

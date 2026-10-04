@@ -27,6 +27,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from console_out import use_utf8  # noqa: E402  — соседний модуль
 
 # Тот же репозиторий, что и в UPDATE_REPO сервера: ссылка в тексте релиза
 # должна ве туда же, куда приложение ходит за обновлениями.
@@ -134,6 +136,7 @@ def main():
                     help="сколько коммитов показывать, если нет заготовки")
     ap.add_argument("--out", default="", help="записать в файл вместо stdout")
     args = ap.parse_args()
+    use_utf8()
 
     version = (args.version or read_version()).lstrip("vV")
     text = build_text(version, args.exe, args.repo, args.commits)
@@ -141,9 +144,6 @@ def main():
         Path(args.out).write_text(text, encoding="utf-8", newline="\n")
         print(f"release_notes: записано в {args.out}")
     else:
-        # В CI stdout уходит в файл, поэтому кодировку задаём явно: иначе
-        # русский текст в заметках релиза превратится в вопросительные знаки.
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         sys.stdout.write(text)
 
 

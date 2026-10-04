@@ -31,6 +31,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from console_out import use_utf8  # noqa: E402  — соседний модуль
+
 API = "https://api.github.com"
 DEFAULT_REPO = "Arthur3web/QuestLog"
 RULESET_NAME = "master"
@@ -102,12 +105,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true",
                     help="показать правила и выйти без обращения к GitHub")
     args = ap.parse_args()
-
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(errors="replace")
-        except Exception:
-            pass
+    use_utf8()
 
     ruleset = build_ruleset(args.require_pr)
     if args.dry_run:

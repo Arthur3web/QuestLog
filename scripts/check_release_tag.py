@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from console_out import use_utf8  # noqa: E402  — соседний модуль
 
 
 def fail(message):
@@ -25,13 +27,7 @@ def fail(message):
 
 
 def main():
-    # Консоль Windows по умолчанию живёт в cp1251, где нет многих знаков:
-    # без этого сообщение об ошибке само становится ошибкой.
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(errors="replace")
-        except Exception:
-            pass
+    use_utf8()
 
     if not (ROOT / "VERSION").exists():
         fail("нет файла VERSION — нечего выпускать")

@@ -39,6 +39,9 @@ NOTES_FILE = ROOT / "release-notes.md"
 EXE = ROOT / "dist" / "QuestLog.exe"
 API = "https://api.github.com"
 
+sys.path.insert(0, str(ROOT / "scripts"))
+from console_out import use_utf8  # noqa: E402  — соседний модуль, путь выше
+
 DEFAULT_REPO = "Arthur3web/QuestLog"
 EXE_NAME = "QuestLog.exe"
 
@@ -50,21 +53,6 @@ def fail(message):
 
 def say(message):
     print(f"release: {message}", flush=True)
-
-
-def use_console_encoding():
-    """Не падать на консоли Windows.
-
-    Кодировка консоли по умолчанию — cp1251, и символ вроде стрелки в
-    сообщении обрушил бы весь выпуск на самом первом шаге. Перекодировку
-    самих символов не делаем: в настоящей консоли Windows их и так
-    рисует правильно, а в CI вывод уходит в лог как есть.
-    """
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(errors="replace")
-        except Exception:
-            pass
 
 
 def run(cmd, **kwargs):
@@ -194,7 +182,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="показать план и выйти")
     ap.add_argument("--skip-tests", action="store_true", help="не гонять тесты и check_js")
     args = ap.parse_args()
-    use_console_encoding()
+    use_utf8()
 
     current = read_version()
     if args.version:
