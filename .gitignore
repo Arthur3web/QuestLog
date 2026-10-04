@@ -17,6 +17,8 @@ dist/
 *.egg
 # Служебный файл PyInstaller, каждый раз пересобирается
 *.spec
+# Текст релиза собирается на лету и в git не нужен
+release-notes.md
 
 # Environment / secrets
 .env

@@ -1,0 +1,95 @@
+name: Релиз
+
+# Тег — это команда «выпустить версию». Дальше всё делает эта сборка:
+# проверяет, что номер в теге совпадает с VERSION, гоняет тесты, собирает
+# .exe, считает хеш и публикует релиз с файлом.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Тег вида v1.0.1 (нужен только при запуске вручную)"
+        required: true
+
+permissions:
+  contents: write   # публикация релиза и загрузка файла — больше ничего
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    env:
+      # При пуше тега ref_name и есть тег; при ручном запуске он был бы
+      # именем ветки, поэтому берём входное значение.
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # история нужна для списка изменений в заметках
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Установить зависимости
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller==6.22.3
+
+      - name: Тесты
+        run: python -m pytest -q
+
+      - name: Синтаксис JS
+        run: python check_js.py
+
+      - name: Номер версии совпадает с тегом
+        shell: pwsh
+        run: python scripts/check_release_tag.py $env:TAG
+
+      - name: Собрать .exe
+        run: python build_exe.py
+
+      # Номер версии читается из файла внутри .exe, а статика запечена при
+      # сборке. Без этой проверки можно выпустить релиз, который показывает
+      # пустую версию в подвале и которого приложение не увидит.
+      - name: Проверить, что VERSION попал внутрь сборки
+        shell: pwsh
+        run: |
+          $list = python -m PyInstaller.utils.cliutils.archive_viewer -l dist\QuestLog.exe
+          if ($list -notmatch "'VERSION'") {
+            throw "VERSION не попал в сборочные данные — версия будет пустой"
+          }
+
+      - name: Собрать текст релиза
+        run: python scripts/release_notes.py --out release-notes.md
+
+      # Выпустить версию можно двумя способами — скриптом release.py или
+      # тегом вручную. Поэтому сначала смотрим, есть ли релиз уже: иначе
+      # второй способ упал бы с ошибкой на ровном месте.
+      - name: Опубликовать релиз
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $tag = $env:TAG
+          if (gh release view $tag 2>$null) {
+            Write-Host "Релиз $tag уже есть — обновляем описание и файл"
+            gh release edit $tag --notes-file release-notes.md
+            gh release upload $tag dist\QuestLog.exe --clobber
+          } else {
+            gh release create $tag dist\QuestLog.exe --title "QuestLog $tag" --notes-file release-notes.md --generate-notes --verify-tag
+          }
+
+      # /releases/latest — это то, что спрашивает приложение. Пока релиз
+      # остаётся черновиком или помечен как pre-release, там будет старый.
+      - name: Проверить, что приложение увидит этот релиз
+        shell: pwsh
+        run: |
+          $latest = Invoke-RestMethod "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/latest" -Headers @{ "User-Agent" = "QuestLog" }
+          if ($latest.tag_name -ne $env:TAG) {
+            throw "Приложение спросит /releases/latest и получит $($latest.tag_name), а выпущен $env:TAG"
+          }
+          Write-Host "Приложение увидит релиз $($latest.tag_name)"
