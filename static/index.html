@@ -183,13 +183,11 @@
         </div>
       </div>
 
-      <div class="project-block">
+      <div class="project-block project-dossier">
         <span class="project-field-label">Досье проекта</span>
         <p class="hint-text">Одно действие: архив со всем, что известно о проекте — страница отчёта, обновления, лента событий и документы. Открывается без QuestLog и печатается в PDF.</p>
-        <div class="project-save-row">
-          <a id="project-dossier-open" class="btn-secondary" href="#" download>Отдать досье</a>
-          <a id="project-report-open" class="project-inline-link" href="#" target="_blank" rel="noopener">открыть отчёт в браузере</a>
-        </div>
+        <a id="project-dossier-open" class="btn-primary project-dossier-btn" href="#" download>Отдать досье</a>
+        <a id="project-report-open" class="project-inline-link project-dossier-link" href="#" target="_blank" rel="noopener">открыть отчёт в браузере</a>
       </div>
 
       <p class="hint-text">Доска остаётся чистой: описание, обновления и документы живут здесь, а задачи — в колонках.</p>
@@ -237,7 +235,6 @@
         <h4>Документы</h4>
         <div class="pane-head-actions">
           <button id="docs-new-open" class="btn-secondary" type="button">+ создать</button>
-          <button id="docs-download-all" class="btn-secondary" type="button" title="Скачать досье проекта: отчёт, обновления, события и документы">Отдать досье</button>
         </div>
       </div>
       <form id="docs-new-form" class="docs-new-form" hidden>

@@ -310,7 +310,6 @@ export function renderProjectDocs(pane, context) {
   const list = byId("docs-list");
   if (!list) return;
 
-  byId("docs-download-all").disabled = false;
   list.innerHTML = "";
 
   if (!context.data.documents.length) {
@@ -333,12 +332,6 @@ export function bindProjectDocs() {
     const files = Array.from(e.target.files);
     e.target.value = ""; // чтобы повторный выбор того же файла сработал
     uploadFiles(files);
-  });
-
-  // Одно действие на всё: из вкладки документов тоже отдаётся досье,
-  // а не только документация — иначе пришлось бы держать два архива.
-  byId("docs-download-all").addEventListener("click", () => {
-    if (ctx) window.location.href = `/api/boards/${ctx.boardId}/dossier`;
   });
 
   // Создание документа на месте: обновления в проекте пишутся здесь же,

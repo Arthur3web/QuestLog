@@ -1371,8 +1371,8 @@ html:not([data-theme="poster"]) [data-header-accent] .modal-close:hover {
 }
 .btn-secondary:hover { border-color: var(--border-strong); color: var(--text); }
 
-/* Та же кнопка, но ссёлкой: подчёркивание и раскладка как у <button>. */
-a.btn-secondary { display: inline-block; text-decoration: none; }
+/* Та же кнопка, но ссылкой: подчёркивание и раскладка как у <button>. */
+a.btn-secondary, a.btn-primary { display: inline-block; text-decoration: none; }
 
 .btn-primary { font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
 
@@ -1916,6 +1916,12 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
   flex-direction: column;
   gap: 8px;
 }
+/* Досье — главное действие обзора, поэтому кнопка стоит своей строкой
+   слева от текста, а тихая ссылка под ней. Плавающая пара «кнопка+ссылка»
+   справа от абзаца читалась как хвост у текста и терялась среди полей. */
+.project-dossier { align-items: flex-start; }
+.project-dossier-btn { margin-top: 2px; }
+.project-dossier-link { margin-top: -2px; }
 /* Переключатель доступа: две строки-радио, как в настройках,
    а не декоративный SaaS-переключатель */
 .project-access { display: flex; flex-direction: column; gap: 4px; }
