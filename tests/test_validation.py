@@ -44,7 +44,13 @@ def test_rename_board_roundtrip(client, board):
     board_id, _ = board
     res = client.put(f"/api/boards/{board_id}", json={"name": "Новое имя"})
     assert res.status_code == 200
-    assert res.get_json() == {"id": board_id, "name": "Новое имя"}
+    # Ответ — карточка проекта целиком (в т.ч. описание и настройка
+    # публичного доступа), поэтому сверяем нужные поля, а не весь dict.
+    project = res.get_json()
+    assert project["id"] == board_id
+    assert project["name"] == "Новое имя"
+    assert project["description"] == ""
+    assert project["docs_public"] is False
 
 
 def test_rename_board_validations(client, board):

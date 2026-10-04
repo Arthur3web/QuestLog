@@ -19,6 +19,7 @@ import {
   setOpenTask, clearOpenTask,
 } from "../domain/store.js";
 import { openOverlay, closeOverlay, confirmDialog } from "../core/modal.js";
+import { bindFileLightbox, openFileLightbox, previewKind } from "../core/file-preview.js";
 import { showToast } from "../core/toast.js";
 import { loadState } from "../domain/state-loader.js";
 
@@ -362,84 +363,24 @@ export function updateSubtaskAddState() {
 // ------------------------------------------------------------
 // Вложения
 // ------------------------------------------------------------
-// Что можно показать прямо в лайтбоксе. Картинки — в <img> (в этом контексте
-// SVG не выполняет свой скрипт), PDF — во фрейме, текстовые файлы — в <pre>.
-const IMAGE_PREVIEW_RE = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i;
-const PDF_PREVIEW_RE = /\.pdf$/i;
-const TEXT_PREVIEW_RE = /\.(txt|md|markdown|log|csv|tsv|json|xml|ya?ml|ini|cfg|conf|toml|env|py|js|mjs|cjs|ts|tsx|jsx|css|html?|sh|bash|bat|cmd|ps1|sql|rb|go|rs|java|kt|c|h|cpp|hpp|cs|php|vue|gitignore|editorconfig)$/i;
-// Текст больше этого размера не тянем в браузер — предлагаем скачать файл.
-const MAX_TEXT_PREVIEW_BYTES = 256 * 1024;
+// Просмотрщик общий с документами проекта: core/file-preview.js.
+// Лайтбокс (разметка и обработчики) тоже оттуда.
 
-function previewKind(filename) {
-  if (IMAGE_PREVIEW_RE.test(filename)) return "image";
-  if (PDF_PREVIEW_RE.test(filename)) return "pdf";
-  if (TEXT_PREVIEW_RE.test(filename)) return "text";
-  return null;
-}
-
-function resetLightboxMedia() {
-  const image = byId("lightbox-image");
-  const frame = byId("lightbox-frame");
-  const text = byId("lightbox-text");
-  image.removeAttribute("src");
-  frame.removeAttribute("src");
-  text.textContent = "";
-  image.hidden = true;
-  frame.hidden = true;
-  text.hidden = true;
-}
-
-function closeLightbox() {
-  const lightbox = byId("attachment-lightbox");
-  if (!lightbox || lightbox.classList.contains("hidden")) return;
-  resetLightboxMedia();
-  // Лайтбокс живёт в том же стеке модалок: Escape закрывает именно его,
-  // а не карточку задачи под ним (иначе потерялись бы несохранённые правки).
-  closeOverlay(lightbox);
-}
-
-async function openLightbox(attachment) {
-  const kind = previewKind(attachment.filename);
-  if (!kind) return false;
-  if (kind === "text" && attachment.size_bytes > MAX_TEXT_PREVIEW_BYTES) {
-    showToast("Файл слишком большой для предпросмотра — скачиваем его");
-    return false;
-  }
-  const url = `/api/attachments/${attachment.id}/download`;
-  resetLightboxMedia();
-  byId("lightbox-name").textContent = attachment.filename;
-
-  const text = byId("lightbox-text");
-  if (kind === "image") {
-    const image = byId("lightbox-image");
-    image.src = url;
-    image.alt = attachment.filename;
-    image.hidden = false;
-  } else if (kind === "pdf") {
-    const frame = byId("lightbox-frame");
-    // Фрейму нужен ответ inline: с Content-Disposition: attachment браузер
-    // скачивает PDF вместо показа.
-    frame.src = `${url}?inline=1`;
-    frame.hidden = false;
-  } else {
-    text.textContent = "Загрузка…";
-    text.hidden = false;
-  }
-  openOverlay("attachment-lightbox");
-
-  if (kind === "text") {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(String(res.status));
-      // textContent, а не innerHTML: содержимое файла не должно стать HTML.
-      text.textContent = await res.text();
-    } catch (e) {
-      closeLightbox();
-      showToast("Не удалось открыть файл");
-      return false;
+function previewAttachment(attachment, downloadUrl) {
+  // Кнопки «Скачать» в превью нет, поэтому если открыть не удалось
+  // (например, текст оказался слишком большим), отдаём файл напрямую —
+  // иначе клик по имени не делал бы ничего.
+  return openFileLightbox({
+    url: downloadUrl,
+    filename: attachment.filename,
+    size_bytes: attachment.size_bytes,
+  }).then(shown => {
+    if (shown) return;
+    if (previewKind(attachment.filename)) {
+      showToast("Файл слишком большой для предпросмотра — скачиваем его");
     }
-  }
-  return true;
+    window.open(downloadUrl, "_blank");
+  });
 }
 
 function renderAttachments(attachments) {
@@ -469,12 +410,7 @@ function renderAttachments(attachments) {
         window.open(downloadUrl, "_blank");
         return;
       }
-      // Кнопки «Скачать» в превью нет, поэтому если его открыть не удалось
-      // (например, текст оказался слишком большим), отдаём файл напрямую —
-      // иначе клик по имени не делал бы ничего.
-      openLightbox(a).then(shown => {
-        if (!shown) window.open(downloadUrl, "_blank");
-      });
+      previewAttachment(a, downloadUrl);
     });
     row.querySelector(".remove-btn").onclick = async () => {
       const taskId = openTaskId;
@@ -928,15 +864,4 @@ export function bindTaskModal() {
     uploadAttachmentsFromModal(files);
   });
   bindAttachmentDrop();
-
-  // Превью вложений — лайтбокс
-  byId("lightbox-close").innerHTML = ICONS.close;
-  byId("lightbox-close").addEventListener("click", () => {
-    closeLightbox();
-  });
-  byId("attachment-lightbox").addEventListener("click", e => {
-    if (e.target === byId("attachment-lightbox")) {
-      closeLightbox();
-    }
-  });
 }

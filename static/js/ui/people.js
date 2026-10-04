@@ -2,7 +2,7 @@
 // Идентичность («Я:») и управление участниками доски.
 // ==========================================================
 
-import { API } from "../core/api.js";
+import { API, setActorId } from "../core/api.js";
 import { byId, escapeHtml, initials } from "../core/dom.js";
 import { ICONS } from "../core/icons.js";
 import { state, currentUserId, onlyMine, setCurrentUserId } from "../domain/store.js";
@@ -74,7 +74,11 @@ export function bindPeople() {
   });
 
   byId("current-user-select").addEventListener("change", e => {
-    setCurrentUserId(Number(e.target.value));
+    const id = Number(e.target.value);
+    setCurrentUserId(id);
+    // Автор меняющих запросов: события ленты проекта будут подписаны
+    // тем, от чьего имени выполнено действие.
+    setActorId(id);
     if (onlyMine) renderBoard();
   });
 }

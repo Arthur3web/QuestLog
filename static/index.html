@@ -62,11 +62,12 @@
      <button id="board-switch-btn" class="icon-btn" title="Переключить доску"
              aria-haspopup="listbox" aria-expanded="false"><span data-icon="boards"></span></button>
 
-     <!-- Название доски — редактируется прямо здесь: клик по тексту,
-          Enter сохраняет, Esc отменяет. Ширина ограничена и стабильна,
+     <!-- Название доски — кнопка открытия панели проекта (описание,
+          обновления, документы). Не поле ввода: переименовать проект
+          можно в панели, в разделе «Обзор». Ширина ограничена и стабильна,
           поэтому кнопки вокруг не «бегают» при смене доски. -->
-     <span id="board-title" class="board-title" contenteditable="true"
-           spellcheck="false" title="Нажмите, чтобы переименовать"></span>
+     <span id="board-title" class="board-title" role="button" tabindex="0"
+           title="Информация о проекте: описание, обновления и документы"></span>
 
      <button id="new-board-btn" class="icon-btn" title="Новая доска">+ доска</button>
      <!-- Перенос — операция над досками, поэтому стоит рядом с ними,
@@ -112,6 +113,135 @@
       </div>
       <div id="calendar-day-list" class="calendar-day-list"></div>
     </div>
+  </div>
+</aside>
+
+<!-- Панель проекта: описание, обновления и документы доски.
+     Отдельная страница, поэтому поверхность доски не меняется —
+     открывается поверх, как панель календаря. -->
+<div id="project-overlay" class="project-overlay" hidden></div>
+<aside id="project-drawer" class="project-drawer" aria-hidden="true">
+  <div class="project-drawer-header">
+    <div class="project-drawer-heading">
+      <h3 id="project-drawer-title">Проект</h3>
+      <span id="project-drawer-sub" class="project-drawer-sub"></span>
+    </div>
+    <button id="project-close" class="modal-close" title="Закрыть (Esc)"><span data-icon="close"></span></button>
+  </div>
+  <div id="project-tabs" class="project-tabs" role="tablist" aria-label="Разделы проекта">
+    <button id="project-tab-overview" class="project-tab active" data-project-tab="overview"
+            role="tab" aria-selected="true" aria-controls="pane-overview" tabindex="0">Обзор</button>
+    <button id="project-tab-updates" class="project-tab" data-project-tab="updates"
+            role="tab" aria-selected="false" aria-controls="pane-updates" tabindex="-1">Обновления</button>
+    <button id="project-tab-events" class="project-tab" data-project-tab="events"
+            role="tab" aria-selected="false" aria-controls="pane-events" tabindex="-1">События</button>
+    <button id="project-tab-docs" class="project-tab" data-project-tab="docs"
+            role="tab" aria-selected="false" aria-controls="pane-docs" tabindex="-1">Документы</button>
+  </div>
+  <div class="project-drawer-body" id="project-body" aria-busy="true">
+    <p class="project-loading">Загрузка…</p>
+    <div id="project-load-error" class="project-load-error" hidden>
+      <p>Не удалось загрузить данные проекта.</p>
+      <button id="project-retry" class="btn-secondary" type="button">Повторить</button>
+    </div>
+    <section class="project-pane" id="pane-overview" data-pane="overview"
+             role="tabpanel" aria-labelledby="project-tab-overview" tabindex="0">
+      <label class="project-field">
+        <span class="project-field-label">Название проекта</span>
+        <input id="project-name" type="text" spellcheck="false" autocomplete="off">
+      </label>
+      <div class="project-rename-row">
+        <button id="project-name-save" class="btn-secondary" disabled>Переименовать</button>
+      </div>
+
+      <label class="project-field">
+        <span class="project-field-label">Описание</span>
+        <textarea id="project-desc" rows="6" spellcheck="false"
+                  placeholder="Цель проекта, состав команды, сроки…"></textarea>
+      </label>
+      <div class="project-save-row">
+        <span id="project-desc-hint" class="saved-hint"></span>
+        <button id="project-desc-save" class="btn-primary" disabled>Сохранить описание</button>
+      </div>
+
+      <div class="project-block">
+        <span class="project-field-label">Доступ к документации</span>
+        <div class="project-access" role="radiogroup" aria-label="Доступ к документации">
+          <label class="project-access-option">
+            <input type="radio" name="project-access" value="private" checked>
+            <span>Только участники</span>
+          </label>
+          <label class="project-access-option">
+            <input type="radio" name="project-access" value="public">
+            <span>Доступна по публичной ссылке</span>
+          </label>
+        </div>
+        <p class="hint-text">QuestLog работает локально и прав по ролям не имеет: участники видят документацию из приложения. Публичная ссылка открывает её ещё и любому, у кого она есть.</p>
+        <div id="project-share" class="project-share" hidden>
+          <input id="project-share-url" type="text" readonly spellcheck="false">
+          <button id="project-share-copy" class="btn-secondary" title="Скопировать ссылку">Копировать</button>
+        </div>
+      </div>
+
+      <div class="project-block">
+        <span class="project-field-label">Досье проекта</span>
+        <p class="hint-text">Одно действие: архив со всем, что известно о проекте — страница отчёта, обновления, лента событий и документы. Открывается без QuestLog и печатается в PDF.</p>
+        <div class="project-save-row">
+          <a id="project-dossier-open" class="btn-secondary" href="#" download>Отдать досье</a>
+          <a id="project-report-open" class="project-inline-link" href="#" target="_blank" rel="noopener">открыть отчёт в браузере</a>
+        </div>
+      </div>
+
+      <p class="hint-text">Доска остаётся чистой: описание, обновления и документы живут здесь, а задачи — в колонках.</p>
+    </section>
+
+    <section class="project-pane" id="pane-updates" data-pane="updates" hidden
+             role="tabpanel" aria-labelledby="project-tab-updates" tabindex="0">
+      <div class="project-pane-head">
+        <h4>История обновлений</h4>
+        <button id="update-add-open" class="btn-primary" type="button">+ обновление</button>
+      </div>
+      <form id="update-form" class="project-update-form" hidden>
+        <input id="update-title" type="text" placeholder="Заголовок обновления" autocomplete="off" maxlength="120">
+        <textarea id="update-text" rows="3" placeholder="Что изменилось…" spellcheck="false"></textarea>
+        <div class="project-form-row">
+          <label class="project-form-date">
+            Дата
+            <span class="dp-input-wrap"><input id="update-date" type="date" autocomplete="off"></span>
+          </label>
+          <div class="footer-actions">
+            <button type="button" id="update-cancel" class="btn-secondary">Отмена</button>
+            <button type="submit" id="update-submit" class="btn-primary">Сохранить</button>
+          </div>
+        </div>
+      </form>
+      <ol id="update-list" class="project-updates"></ol>
+    </section>
+
+    <section class="project-pane" id="pane-events" data-pane="events" hidden
+             role="tabpanel" aria-labelledby="project-tab-events" tabindex="0">
+      <div class="project-pane-head">
+        <h4>Что происходило</h4>
+      </div>
+      <p id="events-digest" class="project-digest" hidden></p>
+      <p class="hint-text">История пишется сама: переносы задач, правки, загрузка документов, обновления и настройки доступа. Кто это сделал — выбранный внизу участник.</p>
+      <ol id="events-list" class="project-events"></ol>
+    </section>
+
+    <section class="project-pane" id="pane-docs" data-pane="docs" hidden
+             role="tabpanel" aria-labelledby="project-tab-docs" tabindex="0">
+      <div class="project-pane-head">
+        <h4>Документы</h4>
+        <button id="docs-download-all" class="btn-secondary" type="button" title="Скачать досье проекта: отчёт, обновления, события и документы">Отдать досье</button>
+      </div>
+      <label class="upload-btn project-upload">
+        + загрузить файл
+        <input id="docs-file-input" type="file" multiple hidden>
+      </label>
+      <p id="docs-drop-hint" class="attachment-drop-hint hint-text">Отпустите файлы, чтобы загрузить их в документацию проекта</p>
+      <p id="docs-status" class="hint-text project-status" hidden></p>
+      <div id="docs-list" class="docs-list"></div>
+    </section>
   </div>
 </aside>
 
@@ -278,6 +408,22 @@
   </div>
 </div>
 
+<!-- Command palette (Ctrl+K): одно поле для всех редких действий -->
+<div id="palette-modal" class="modal-overlay palette-overlay hidden">
+  <div class="modal palette-modal" role="dialog" aria-modal="true" aria-label="Палитра команд" data-header-accent>
+    <div class="palette-input-wrap">
+      <span class="palette-input-mark">/</span>
+      <input id="palette-input" type="text" placeholder="Команда или название доски…" autocomplete="off" spellcheck="false">
+      <span class="palette-key">Ctrl K</span>
+    </div>
+    <ul id="palette-list" class="palette-list" role="listbox" aria-label="Команды"></ul>
+    <div class="palette-footer">
+      <span id="palette-hint" class="palette-hint"></span>
+      <button class="btn-secondary" data-close>Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm dialog -->
 <div id="confirm-modal" class="modal-overlay hidden">
   <div class="modal confirm-modal" role="alertdialog" aria-modal="true" data-header-accent>
@@ -333,7 +479,7 @@
 <!-- Attachment preview lightbox: картинки, PDF и текстовые файлы -->
 <div id="attachment-lightbox" class="lightbox-overlay hidden">
   <div class="lightbox-content">
-    <button class="lightbox-close" id="lightbox-close" title="Закрыть"></button>
+    <button class="lightbox-close" id="lightbox-close" title="Закрыть"><span data-icon="close"></span></button>
     <div class="lightbox-head">
       <span id="lightbox-name" class="lightbox-name"></span>
     </div>

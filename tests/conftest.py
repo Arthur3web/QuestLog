@@ -20,11 +20,14 @@ import server  # noqa: E402  — импорт после правки sys.path
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
-    """Flask-клиент на временной базе и временной папке вложений."""
+    """Flask-клиент на временной базе и временных папках файлов."""
     attach_dir = tmp_path / "attachments"
     attach_dir.mkdir()
+    doc_dir = tmp_path / "documents"
+    doc_dir.mkdir()
     monkeypatch.setattr(server, "DB_PATH", str(tmp_path / "test.db"))
     monkeypatch.setattr(server, "ATTACH_DIR", str(attach_dir))
+    monkeypatch.setattr(server, "DOC_DIR", str(doc_dir))
     server.init_db()
     server.app.config.update(TESTING=True)
     with server.app.test_client() as test_client:

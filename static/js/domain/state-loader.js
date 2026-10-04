@@ -13,7 +13,7 @@
 // списку досок в шапке.
 // ==========================================================
 
-import { API } from "../core/api.js";
+import { API, setActorId } from "../core/api.js";
 import {
   state,
   currentBoardId,
@@ -39,6 +39,9 @@ export async function loadState() {
   ) {
     setCurrentUserId(state.users[0].id);
   }
+  // Подставляем автора в изменяющие запросы — по нему сервер подписывает
+  // события ленты проекта.
+  setActorId(currentUserId);
   renderIdentitySelect();
   afterLoadCallbacks.forEach(fn => fn());
   renderBoard();

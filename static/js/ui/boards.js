@@ -1,9 +1,12 @@
 // ==========================================================
-// Доски: выбор, создание и переименование.
+// Доски: выбор и создание.
 //
-// Переключение и переименование — разные действия, поэтому у них
-// разные элементы в шапке: клик по названию переименовывает, клик
-// по стрелке открывает меню выбора доски.
+// Переключение и информация о проекте — разные действия, поэтому
+// у них разные элементы в шапке: клик по стрелке открывает меню
+// выбора доски, клик по названию — боковую панель проекта.
+// Переименование живёт в панели проекта (поле «Название проекта»):
+// в шапке для него не осталось места, и неявный двойной клик
+// путался с одиночным — оба открывали одно и то же.
 // ==========================================================
 
 import { API } from "../core/api.js";
@@ -23,41 +26,15 @@ export function currentBoard() {
 }
 
 // ------------------------------------------------------------
-// Название доски (переименование инлайн)
+// Название доски в шапке
 // ------------------------------------------------------------
+// Это кнопка открытия панели проекта, а не поле ввода: правки
+// имени здесь нет, поэтому текст можно обновлять свободно.
 export function renderBoardTitle() {
   const el = byId("board-title");
   if (!el) return;
   const board = currentBoard();
-  // Не трогаем текст, пока его редактируют, иначе улетает каретка.
-  if (document.activeElement !== el) el.textContent = board ? board.name : "";
-}
-
-async function commitBoardRename() {
-  const el = byId("board-title");
-  const board = currentBoard();
-  if (!el || !board) return;
-
-  const name = el.textContent.replace(/\s+/g, " ").trim();
-  if (!name) {
-    el.textContent = board.name; // пустое имя — возвращаем прежнее
-    return;
-  }
-  if (name === board.name) {
-    el.textContent = board.name;
-    return;
-  }
-
-  try {
-    const updated = await API.put(`/api/boards/${board.id}`, { name });
-    board.name = updated.name;
-    el.textContent = updated.name;
-    renderBoardMenu();
-    showToast("Доска переименована");
-  } catch (e) {
-    el.textContent = board.name;
-    showToast("Не удалось переименовать доску");
-  }
+  el.textContent = board ? board.name : "";
 }
 
 // ------------------------------------------------------------
@@ -119,6 +96,9 @@ async function switchBoard(boardId) {
   await loadState();
 }
 
+// Переключение доски из палитры команд: тот же путь, что и через меню.
+export { switchBoard };
+
 // Кнопка «Создать» неактивна, пока название доски не введено
 export function updateCreateBoardButtonState() {
   const btn = byId("create-board-btn");
@@ -153,21 +133,11 @@ async function createBoardFromModal() {
 // ------------------------------------------------------------
 export function bindBoards() {
   // Название доски обновляем после каждой загрузки состояния
-  // (переключение доски, перенос задач и т.п.).
-  onStateLoaded(renderBoardTitle);
+  // (переключение доски, перенос задач и т.п.).onStateLoaded(renderBoardTitle);
 
-  const title = byId("board-title");
-
-  title.addEventListener("keydown", e => {
-    if (e.key === "Enter") { e.preventDefault(); title.blur(); }
-    if (e.key === "Escape") {
-      e.preventDefault();
-      const board = currentBoard();
-      if (board) title.textContent = board.name;
-      title.blur();
-    }
-  });
-  title.addEventListener("blur", commitBoardRename);
+  // Клик по названию открывает панель проекта — обработчик живёт
+  // в project-drawer.js: так boards.js не зависит от панели и между
+  // модулями не появляется цикл импортов.
 
   // Клик по кнопке-стрелке переключает меню: один обработчик и
   // открывает, и закрывает, поэтому повторный клик закрывает его всегда.
@@ -204,6 +174,19 @@ export function bindBoards() {
     if (e.key === "Enter") { e.preventDefault(); createBoardFromModal(); }
   });
   updateCreateBoardButtonState();
+}
+
+export function renameBoard(name) {
+  const board = currentBoard();
+  const clean = (name || "").replace(/\s+/g, " ").trim();
+  if (!board || !clean || clean === board.name) return;
+  return API.put(`/api/boards/${board.id}`, { name: clean }).then((updated) => {
+    board.name = updated.name;
+    renderBoardTitle();
+    renderBoardMenu();
+    showToast("Проект переименован");
+    return updated;
+  });
 }
 
 // Загрузка списка досок с сервера (вызывается один раз при старте)

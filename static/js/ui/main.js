@@ -12,6 +12,7 @@
 //   state-loader — загрузка состояния доски (domain/)
 //   calendar   — панель календаря
 //   people     — участники и «Я:»
+//   project-drawer  — панель проекта: обзор, обновления, документы
 // ==========================================================
 
 import { byId } from "../core/dom.js";
@@ -23,6 +24,7 @@ import {
 import { API } from "../core/api.js";
 import { showToast } from "../core/toast.js";
 import { bindModalEscape, isModalOpen } from "../core/modal.js";
+import { bindFileLightbox } from "../core/file-preview.js";
 import { fetchBoards, renderBoardTitle, bindBoards } from "./boards.js";
 import { renderBoard } from "./board.js";
 import { bindContextMenu } from "./task-card.js";
@@ -33,6 +35,8 @@ import { bindPeople } from "./people.js";
 import { bindBulkMove } from "./bulk-move.js";
 import { attachDatePicker, bindDatePickers } from "./date-picker.js";
 import { applyTheme, bindTheme, currentTheme } from "./theme.js";
+import { bindProjectDrawer } from "./project-drawer.js";
+import { bindCommandPalette } from "./command-palette.js";
 
 async function boot() {
   renderIcons();
@@ -100,10 +104,13 @@ function bindGlobalEvents() {
       target.tagName === "INPUT" || target.tagName === "TEXTAREA" ||
       target.tagName === "SELECT" || target.isContentEditable
     );
+    // В палитре буква не должна оборачиваться буквой «т» (русская
+    // раскладка): привычные «создать задачу» и фильтр там неуместны.
+    const inPalette = Boolean(document.activeElement && document.activeElement.closest("#palette-modal"));
     if (e.key === "/" && !isTyping && !isModalOpen()) {
       e.preventDefault();
       byId("search-input").focus();
-    } else if ((e.key === "n" || e.key === "N" || e.key === "т" || e.key === "Т") && !isTyping && !isModalOpen()) {
+    } else if ((e.key === "n" || e.key === "N" || e.key === "т" || e.key === "Т") && !isTyping && !isModalOpen() && !inPalette) {
       e.preventDefault();
       createAndOpenTask();
     } else if (e.altKey && (e.key === "m" || e.key === "M" || e.key === "ь" || e.key === "Ь")) {
@@ -122,11 +129,16 @@ function bindGlobalEvents() {
   bindBoards();
   bindBulkMove();
   bindTheme();
+  bindProjectDrawer();
+  bindCommandPalette();
+  // Просмотрщик файлов общий для вложений задачи и документов проекта.
+  bindFileLightbox();
 
   // Тематический выбор даты вместо нативного календаря браузера.
   bindDatePickers();
   attachDatePicker(byId("tm-due"));
   attachDatePicker(byId("cm-due"));
+  attachDatePicker(byId("update-date"));
 }
 
 // ------------------------------------------------------------

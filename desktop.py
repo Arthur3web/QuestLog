@@ -242,13 +242,18 @@ def autostart_dir():
 
 
 def _launcher_command(hidden):
-    py = sys.executable
-    if os.name == "nt":
-        pyw = os.path.join(os.path.dirname(py), "pythonw.exe")
-        if os.path.exists(pyw):
-            py = pyw
-    script = os.path.join(BASE_DIR, "desktop.py")
-    args = [py, script] + (["--hidden"] if hidden else [])
+    # В собранном .exe запускать надо сам бинарь, а не интерпретатор
+    # с исходником: исходника рядом с exe нет.
+    if getattr(sys, "frozen", False):
+        args = [sys.executable] + (["--hidden"] if hidden else [])
+    else:
+        py = sys.executable
+        if os.name == "nt":
+            pyw = os.path.join(os.path.dirname(py), "pythonw.exe")
+            if os.path.exists(pyw):
+                py = pyw
+        script = os.path.join(BASE_DIR, "desktop.py")
+        args = [py, script] + (["--hidden"] if hidden else [])
     if os.name == "nt":
         import subprocess as _sp
         return _sp.list2cmdline(args)
@@ -277,14 +282,19 @@ def set_autostart(enable):
     if os.name == "nt":
         try:
             from win32com.client import Dispatch  # pywin32, если установлен
-            py = sys.executable
-            pyw = os.path.join(os.path.dirname(py), "pythonw.exe")
-            if os.path.exists(pyw):
-                py = pyw
             shell = Dispatch("WScript.Shell")
             lnk = shell.CreateShortCut(os.path.join(d, "TaskBoard.lnk"))
-            lnk.Target = py
-            lnk.Arguments = f'"{os.path.join(BASE_DIR, "desktop.py")}" --hidden'
+            if getattr(sys, "frozen", False):
+                # Собранный .exe запускается сам, без python.exe и исходника.
+                lnk.Target = sys.executable
+                lnk.Arguments = "--hidden"
+            else:
+                py = sys.executable
+                pyw = os.path.join(os.path.dirname(py), "pythonw.exe")
+                if os.path.exists(pyw):
+                    py = pyw
+                lnk.Target = py
+                lnk.Arguments = f'"{os.path.join(BASE_DIR, "desktop.py")}" --hidden'
             lnk.WorkingDirectory = BASE_DIR
             lnk.save()
             return
