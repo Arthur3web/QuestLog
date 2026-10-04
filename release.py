@@ -109,14 +109,7 @@ def sha256(path):
 
 def verify_version_inside_exe(version):
     """Номер читается из файла внутри .exe: если файла нет, подвал пуст."""
-    listing = subprocess.run(
-        [sys.executable, "-m", "PyInstaller.utils.cliutils.archive_viewer", "-l", str(EXE)],
-        cwd=ROOT, capture_output=True, text=True,
-    )
-    if "'VERSION'" not in listing.stdout:
-        fail("VERSION не попал в сборочные данные — в собранном файле "
-             "версия будет пустой")
-    say(f"внутри сборки есть VERSION ({version})")
+    run([sys.executable, "scripts/verify_build.py", "--version", version])
 
 
 def github_request(token, method, url, payload=None, data=None, content_type=None):

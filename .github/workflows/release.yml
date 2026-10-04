@@ -53,14 +53,11 @@ jobs:
 
       # Номер версии читается из файла внутри .exe, а статика запечена при
       # сборке. Без этой проверки можно выпустить релиз, который показывает
-      # пустую версию в подвале и которого приложение не увидит.
-      - name: Проверить, что VERSION попал внутрь сборки
-        shell: pwsh
-        run: |
-          $list = python -m PyInstaller.utils.cliutils.archive_viewer -l dist\QuestLog.exe
-          if ($list -notmatch "'VERSION'") {
-            throw "VERSION не попал в сборочные данные — версия будет пустой"
-          }
+      # пустую версию в подвале и которого приложение не увидит. Архив
+      # читается напрямую: разбор вывода PyInstaller в PowerShell однажды
+      # уже сломал проверку целиком.
+      - name: Проверить содержимое сборки
+        run: python scripts/verify_build.py
 
       - name: Собрать текст релиза
         run: python scripts/release_notes.py --out release-notes.md
