@@ -1,0 +1,33 @@
+name: Проверки
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    # Пока только Windows: тесты автозапуска импортируют desktop.py вместе с
+    # pystray и pywebview, а они на headless-Linux требуют графической
+    # подсистемы. Когда появится Linux-окружение для проверки — добавить его
+    # в матрицу, а не отдельным job: тесты должны идти на каждой платформе.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Установить зависимости
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Тесты
+        run: python -m pytest -q
+
+      - name: Синтаксис JS
+        run: python check_js.py
