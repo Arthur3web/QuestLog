@@ -10,10 +10,10 @@
 import { API } from "../core/api.js";
 import { byId, escapeHtml } from "../core/dom.js";
 import { ICONS } from "../core/icons.js";
+import { previewKind } from "../core/file-preview.js";
 import { formatSize } from "../core/format.js";
 import { confirmDialog } from "../core/modal.js";
 import { showToast } from "../core/toast.js";
-import { openFileLightbox } from "../core/file-preview.js";
 
 // Совпадает с лимитом запроса на сервере (MAX_UPLOAD_MB).
 const MAX_UPLOAD_MB = 25;
@@ -113,6 +113,9 @@ function openDoc(doc) {
     url,
     filename: doc.filename,
     size_bytes: doc.size_bytes,
+    // Правится только текст, и только свой: отпечаток файла не даст
+    // затереть правку, сделанную снаружи, пока документ был открыт.
+    editor: doc.preview === "text" ? documentEditor(doc) : null,
   }).then((shown) => {
     // Клик по строке не должен ничего не делать: если превью не вышло,
     // честно говорим об этом и отдаём файл на скачивание.
@@ -122,19 +125,87 @@ function openDoc(doc) {
   });
 }
 
+function documentEditor(doc) {
+  // Отпечаток файла запоминаем при входе в правку и сверяем с ним при
+  // сохранении: если файл трогали мимо приложения, сервер ответит 409
+  // вместо того, чтобы молча затереть чужую правку.
+  let stamp = null;
+  return {
+    async load() {
+      const data = await API.get(`/api/project-documents/${doc.id}/content`);
+      stamp = data.stamp;
+      return data.text;
+    },
+    async save(text) {
+      try {
+        const updated = await API.put(`/api/project-documents/${doc.id}/content`, { text, stamp });
+        if (ctx) await ctx.reload();
+        showToast(`«${updated.filename}» сохранён`);
+        return { ok: true };
+      } catch (e) {
+        showToast(String(e.message || e).includes("изменился")
+          ? "Файл изменился на диске — закройте и откройте заново"
+          : "Не удалось сохранить документ");
+        return { error: true };
+      }
+    },
+  };
+}
+
 // ------------------------------------------------------------
 // Переименование прямо в строке (как у подзадач и комментариев)
 // ------------------------------------------------------------
+// Правка идёт в той же строке, без рамки: иначе строка растёт и кнопки
+// справа уезжают вниз. Пока имя правится, карандаш становится галочкой —
+// сохранить видно мышью, а не только по Enter, — и подпись с типом и
+// размером подменяется подсказкой про клавиши: обе строки одной высоты.
+//
+// Правится только имя без расширения: расширение показывается рядом
+// неприкосновенным текстом. Иначе можно назвать картинку «смета.txt» —
+// содержимое останется картинкой, а подпись и просмотрщик соврут.
+let activeRename = null;
+
+function splitExtension(filename) {
+  const dot = filename.lastIndexOf(".");
+  if (dot <= 0) return [filename, ""];
+  return [filename.slice(0, dot), filename.slice(dot)];
+}
+
 function startRename(doc, row) {
   const nameNode = row.querySelector(".doc-name");
   if (!nameNode || row.querySelector(".doc-rename-input")) return;
 
+  const metaNode = row.querySelector(".doc-meta");
+  const renameBtn = row.querySelector(".doc-rename");
+  const openTitle = renameBtn.getAttribute("title");
+  const [baseName, extension] = splitExtension(doc.filename);
+
+  const wrap = document.createElement("span");
+  wrap.className = "doc-rename-wrap";
+
   const input = document.createElement("input");
   input.type = "text";
   input.className = "doc-rename-input";
-  input.value = doc.filename;
+  input.value = baseName;
   input.spellcheck = false;
-  nameNode.replaceWith(input);
+  wrap.appendChild(input);
+
+  if (extension) {
+    const suffix = document.createElement("span");
+    suffix.className = "doc-rename-ext";
+    suffix.textContent = extension;
+    wrap.appendChild(suffix);
+  }
+  nameNode.replaceWith(wrap);
+
+  const hint = document.createElement("span");
+  hint.className = "doc-meta doc-rename-hint";
+  hint.textContent = "Enter — сохранить, Esc — отмена";
+  metaNode.replaceWith(hint);
+
+  renameBtn.innerHTML = ICONS.check;
+  renameBtn.title = "Сохранить (Enter)";
+  renameBtn.setAttribute("aria-label", "Сохранить");
   input.focus();
   input.select();
 
@@ -142,23 +213,39 @@ function startRename(doc, row) {
   const finish = (save) => {
     if (settled) return;
     settled = true;
+    activeRename = null;
     const name = input.value.trim();
-    if (save && name && name !== doc.filename) {
-      API.put(`/api/project-documents/${doc.id}`, { filename: name })
-        .then(() => { showToast("Файл переименован"); return ctx.reload(); })
-        .catch(() => showToast("Не удалось переименовать файл"));
-      return;
-    }
-    if (!save && name !== doc.filename) return ctx.reload();
+    // Строку возвращаем в исходный вид в любом случае: после Esc поле иначе
+    // осталось бы висеть, а карандаш — не на что было бы нажать.
+    wrap.replaceWith(nameNode);
+    hint.replaceWith(metaNode);
+    renameBtn.innerHTML = ICONS.edit;
+    renameBtn.title = openTitle;
+    renameBtn.setAttribute("aria-label", "Переименовать");
+    if (!save || !name || name === baseName) return;
+    // Из поля правится только имя, но человек вполне может вставить
+    // «протокол.txt» целиком. Приклеивать расширение к такому нельзя —
+    // вышло бы «протокол.txt.png». Отбрасываем хвост, только если он
+    // похож на настоящий тип файла, иначе это часть имени («схема.2»).
+    const [typedBase, typedExt] = splitExtension(name);
+    const cleanBase = typedExt && previewKind(`x${typedExt}`) ? typedBase : name;
+    API.put(`/api/project-documents/${doc.id}`, { filename: cleanBase + extension })
+      .then(() => { showToast("Файл переименован"); return ctx.reload(); })
+      .catch((e) => showToast(String(e.message || e).includes("уже есть")
+        ? "Документ с таким именем уже есть"
+        : "Не удалось переименовать файл"));
   };
 
+  activeRename = { row, save: () => finish(true) };
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); input.blur(); }
-    if (e.key === "Escape") {
-      e.preventDefault();
-      input.value = doc.filename;
-      input.blur();
-    }
+    if (e.key === "Enter") { e.preventDefault(); finish(true); return; }
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    // Гасим событие: дальше по документу его слушает панель проекта, и без
+    // этого Escape отменял бы правку и закрывал ящик целиком.
+    e.stopPropagation();
+    input.value = baseName;
+    finish(false);
   });
   input.addEventListener("blur", () => finish(true));
 }
@@ -192,7 +279,14 @@ function renderRow(doc) {
   `;
 
   if (canPreview) row.querySelector(".doc-open").addEventListener("click", () => openDoc(doc));
-  row.querySelector(".doc-rename").addEventListener("click", () => startRename(doc, row));
+  const renameBtn = row.querySelector(".doc-rename");
+  // Клик по кнопке не должен снимать фокус с поля: иначе blur сохранил бы
+  // имя, а следующий обработчик тут же открыл бы правку заново.
+  renameBtn.addEventListener("mousedown", (e) => e.preventDefault());
+  renameBtn.addEventListener("click", () => {
+    if (activeRename && activeRename.row === row) { activeRename.save(); return; }
+    startRename(doc, row);
+  });
   row.querySelector(".doc-delete").addEventListener("click", async () => {
     const ok = await confirmDialog(
       `Удалить документ «${doc.filename}»?`,
@@ -245,6 +339,54 @@ export function bindProjectDocs() {
   // а не только документация — иначе пришлось бы держать два архива.
   byId("docs-download-all").addEventListener("click", () => {
     if (ctx) window.location.href = `/api/boards/${ctx.boardId}/dossier`;
+  });
+
+  // Создание документа на месте: обновления в проекте пишутся здесь же,
+  // а из документов раньше можно было только загрузить готовый файл.
+  const newForm = byId("docs-new-form");
+  const newName = byId("docs-new-name");
+  const newOpen = byId("docs-new-open");
+  // Пока форма открыта, кнопка «+ создать» рядом не нужна — в форме есть
+  // своя «Создать». Иначе два рядом стоящих начала работы обоих сбивают.
+  const closeNewForm = () => {
+    newForm.hidden = true;
+    newOpen.hidden = false;
+    newName.value = "";
+  };
+  newOpen.addEventListener("click", () => {
+    newForm.hidden = false;
+    newOpen.hidden = true;
+    newName.focus();
+  });
+  // Escape закрывает форму и возвращает фокус на кнопку, её открывшую.
+  // stopPropagation обязателен: дальше по документу слушает панель проекта,
+  // и без него закрылся бы ещё и ящик целиком.
+  newForm.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    e.stopPropagation();
+    closeNewForm();
+    newOpen.focus();
+  });
+  byId("docs-new-cancel").addEventListener("click", closeNewForm);
+  newForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!ctx) return;
+    const name = newName.value.trim();
+    if (!name) return;
+    try {
+      const doc = await API.post(`/api/boards/${ctx.boardId}/documents/text`, {
+        filename: name,
+        text: "",
+      });
+      closeNewForm();
+      await ctx.reload();
+      showToast(`Документ «${doc.filename}» создан`);
+    } catch (err) {
+      const message = String(err.message || err);
+      showToast(message.includes("уже есть") ? "Документ с таким именем уже есть"
+        : "Не удалось создать документ");
+    }
   });
 
   // Перетаскивание файлов в панель документов.

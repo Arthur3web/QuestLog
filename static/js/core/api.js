@@ -19,10 +19,25 @@ function actorHeaders() {
 
 async function json(url, options) {
   const res = await fetch(url, options);
-  if (!res.ok) {
-    throw new Error(await res.text());
+  const text = await res.text();
+  let payload = null;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch (e) {
+      payload = null;
+    }
   }
-  return res.json();
+  if (!res.ok) {
+    // Сервер отдаёт ошибку как {"error": "..."}. В сыром теле JSON кириллица
+    // экранирована (\u0414...), поэтому искать по нему причину бесполезно —
+    // отдаём наружу именно текст ошибки.
+    const message = payload && payload.error ? payload.error : text;
+    const err = new Error(message);
+    err.status = res.status;
+    throw err;
+  }
+  return payload;
 }
 
 export const API = {

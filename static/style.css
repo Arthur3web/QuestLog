@@ -1087,17 +1087,28 @@ html:not([data-theme="poster"]) [data-header-accent] .modal-close:hover {
 }
 .lightbox-close .icon { width: 14px; height: 14px; }
 
-/* Над превью — только имя файла: скачивание живёт в списке вложений,
-   внутри лайтбокса отдельной ссылки нет. */
-.lightbox-head { margin-bottom: 8px; }
+/* Над превью — имя файла и, для текста, кнопка правки. Скачивание живёт
+   в списке документов, внутри лайтбокса отдельной ссылки нет. */
+.lightbox-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  /* Кнопка закрытия висит над правым верхним углом — место под неё резервируем,
+     иначе «Сохранить» уезжает под крестик. */
+  padding-right: 30px;
+}
 .lightbox-name {
-  display: block;
+  flex: 1;
+  min-width: 0;
   font-size: 12.5px;
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.lightbox-head .btn-secondary,
+.lightbox-head .btn-primary { flex: 0 0 auto; padding: 5px 10px; font-size: 12px; }
 /* PDF показываем во фрейме, текст — моноширинным блоком. display здесь
    не задаём: иначе сломалось бы скрытие через атрибут hidden. */
 .lightbox-frame {
@@ -1762,6 +1773,9 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
   padding: 5px 10px;
   font-size: 11.5px;
 }
+/* Кнопки заголовка живут своей группой: когда «+ создать» прячется на время
+   формы, «Отдать досье» остаётся на своём месте, а не прыгает влево. */
+.pane-head-actions { display: flex; align-items: center; gap: 6px; }
 
 /* --- Поля --- */
 .project-field { display: flex; flex-direction: column; gap: 5px; }
@@ -1798,6 +1812,63 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
 }
 .project-save-row .btn-primary, .project-rename-row .btn-secondary { padding: 6px 12px; font-size: 12px; }
 .saved-hint { font-size: 11.5px; color: var(--done); }
+
+/* --- Создание документа на месте --- */
+/* Форма стоит столбиком: поле во всю ширину панели, кнопки — справа под ним.
+   В одну строку поле ужималось до 134 px и имя приходилось угадывать. */
+.docs-new-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px;
+  border: var(--border-width) solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+.docs-new-hint { margin: 0; }
+.docs-new-form[hidden] { display: none; }
+.docs-new-form input[type="text"] {
+  width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-family: var(--font);
+  font-size: 12.5px;
+}
+.docs-new-form input:focus { outline: none; border-color: var(--accent); }
+.docs-new-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Правка текста в том же просмотрщике: <textarea> вместо <pre>. */
+.lightbox-edit-actions { display: flex; align-items: center; gap: 6px; }
+.lightbox-edit-actions[hidden] { display: none; }
+.lightbox-editor {
+  width: 100%;
+  /* Высота как у блока чтения, иначе при переключении «прочитать/править»
+     лайтбокс прыгает. */
+  height: 78vh;
+  min-height: 300px;
+  padding: 12px 14px;
+  background: var(--surface);
+  color: var(--text);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 12.5px;
+  line-height: 1.55;
+  resize: vertical;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+.lightbox-editor:focus { outline: none; border-color: var(--accent); }
 
 /* Пересказ за период: тише списка, но читается первым. */
 .project-digest {
@@ -2052,6 +2123,10 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
 .doc-file-mark .icon { width: 15px; height: 15px; }
 .doc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .doc-name {
+  /* Фиксированная высота строки: на её место встаёт поле правки той же
+     высоты, поэтому кнопки справа не прыгают вниз. */
+  height: 18px;
+  line-height: 18px;
   font-family: var(--font);
   font-size: 12.5px;
   font-weight: 600;
@@ -2067,17 +2142,47 @@ a.btn-secondary { display: inline-block; text-decoration: none; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Поле правки имени: та же высота, что у названия, и без рамки —
+   только подчёркивание. Рамка делала бы поле выше строки, и кнопки
+   справа съезжали вниз. */
+.doc-rename-wrap {
+  display: flex;
+  align-items: center;
+  height: 18px;
+  min-width: 0;
+}
 .doc-rename-input {
-  width: 100%;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 18px;
+  line-height: 16px;
+  padding: 0 3px;
+  appearance: none;
+  -webkit-appearance: none;
   background: var(--surface);
   color: var(--text);
-  border: var(--border-width) solid var(--accent);
-  border-radius: var(--radius-sm);
-  padding: 3px 6px;
+  border: none;
+  border-bottom: 2px solid var(--accent);
+  border-radius: 0;
   font-family: var(--font);
   font-size: 12.5px;
+  font-weight: 600;
 }
 .doc-rename-input:focus { outline: none; }
+/* Расширение не правится — оно показывается рядом приглушённым текстом,
+   чтобы по названию нельзя было поменять тип файла. */
+.doc-rename-ext {
+  flex: 0 0 auto;
+  padding-right: 3px;
+  font-family: var(--font);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+  cursor: default;
+}
+/* Пока имя правится, подпись файла уступает место подсказке про клавиши. */
+.doc-rename-hint { color: var(--accent); }
 .doc-actions { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
 .doc-actions a.preview-btn { text-decoration: none; }
 /* Три кнопки справа — одна на всех: одинаковый размер, рамка и цвет.

@@ -86,6 +86,10 @@ THEMES = ("retro", "poster")
 # Сколько дней без движения считать зависанием.
 STUCK_STALE_DAYS = 14
 
+# Предел для документа, который правят в приложении. Совпадает с тем,
+# до какого размера просмотрщик вообще тянет текст в браузер.
+MAX_TEXT_DOCUMENT_BYTES = 256 * 1024
+
 FIELD_LABELS = {
     "title": "название",
     "description": "описание",
@@ -1152,6 +1156,129 @@ def upload_project_document(board_id):
     return jsonify(project_document_dict(row)), 201
 
 
+@app.route("/api/boards/<int:board_id>/documents/text", methods=["POST"])
+def create_project_text_document(board_id):
+    """Создать текстовый документ прямо в приложении.
+
+    Обновления в проекте пишутся на месте, а из документов раньше можно было
+    только загрузить готовый файл — из-за этого простую заметку приходилось
+    заводить в проводнике. Файл остаётся обычным файлом в папке доски: то,
+    что создано здесь, потом так же скачивается и правится снаружи.
+    """
+    data = request.get_json(force=True)
+    db = get_db()
+    if not db.execute("SELECT id FROM boards WHERE id=?", (board_id,)).fetchone():
+        abort(404)
+
+    filename = safe_document_name(data.get("filename"))
+    if not filename:
+        return jsonify({"error": "Имя документа обязательно"}), 400
+    # Формат задаёт приложение, а не человек: документы, созданные здесь,
+    # всегда текстовые. Написал текстовое расширение — оставляем (так тоже
+    # понятно), написал другое или не написал ничего — markdown.
+    if document_preview_kind(filename) != "text":
+        filename = f"{os.path.splitext(filename)[0]}.md"
+
+    body = data.get("text") or ""
+    if len(body.encode("utf-8")) > MAX_TEXT_DOCUMENT_BYTES:
+        return jsonify({"error": "Документ слишком большой"}), 400
+
+    if db.execute(
+        "SELECT 1 FROM project_documents WHERE board_id=? AND filename=?",
+        (board_id, filename),
+    ).fetchone():
+        return jsonify({"error": "Документ с таким именем уже есть"}), 409
+
+    stored_name = f"{uuid.uuid4().hex}{os.path.splitext(filename)[1]}"
+    path = os.path.join(document_dir(board_id), stored_name)
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(body)
+
+    ts = now_iso()
+    cur = db.execute(
+        """INSERT INTO project_documents (board_id, filename, stored_name, size_bytes, created_at, updated_at)
+           VALUES (?,?,?,?,?,?)""",
+        (board_id, filename, stored_name, os.path.getsize(path), ts, ts),
+    )
+    db.commit()
+    row = db.execute("SELECT * FROM project_documents WHERE id=?", (cur.lastrowid,)).fetchone()
+    log_event(board_id, "doc_added", f"Документ «{filename}» создан")
+    db.commit()
+    return jsonify(project_document_dict(row)), 201
+
+
+@app.route("/api/project-documents/<int:doc_id>/content", methods=["GET"])
+def read_project_document_content(doc_id):
+    """Содержимое текстового документа плюс отпечаток файла.
+
+    Отпечаток (размер и время изменения) нужен, чтобы при сохранении не
+    затереть правку, сделанную в файле снаружи, пока документ был открыт.
+    """
+    row = _text_document_row(doc_id)
+    if row is None:
+        return jsonify({"error": "Документ не найден или не текстовый"}), 404
+    path = os.path.join(document_dir(row["board_id"]), row["stored_name"])
+    if not os.path.exists(path):
+        abort(404)
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        text = fh.read()
+    return jsonify(
+        {"filename": row["filename"], "text": text, "stamp": _file_stamp(path)}
+    )
+
+
+@app.route("/api/project-documents/<int:doc_id>/content", methods=["PUT"])
+def write_project_document_content(doc_id):
+    """Сохранить содержимое текстового документа на диск."""
+    data = request.get_json(force=True)
+    row = _text_document_row(doc_id)
+    if row is None:
+        return jsonify({"error": "Документ не найден или не текстовый"}), 404
+
+    body = data.get("text")
+    if not isinstance(body, str):
+        return jsonify({"error": "Нужен текст документа"}), 400
+    if len(body.encode("utf-8")) > MAX_TEXT_DOCUMENT_BYTES:
+        return jsonify({"error": "Документ слишком большой"}), 400
+
+    path = os.path.join(document_dir(row["board_id"]), row["stored_name"])
+    if not os.path.exists(path):
+        abort(404)
+
+    sent_stamp = data.get("stamp")
+    if sent_stamp and sent_stamp != _file_stamp(path):
+        # Файл трогали мимо приложения — молча перезаписать его нельзя.
+        return jsonify({"error": "Файл изменился на диске — откройте его заново"}), 409
+
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(body)
+    db = get_db()
+    db.execute(
+        "UPDATE project_documents SET size_bytes=?, updated_at=? WHERE id=?",
+        (os.path.getsize(path), now_iso(), doc_id),
+    )
+    db.commit()
+    log_event(row["board_id"], "doc_edited", f"Документ «{row['filename']}» изменён")
+    db.commit()
+    row = db.execute("SELECT * FROM project_documents WHERE id=?", (doc_id,)).fetchone()
+    return jsonify(project_document_dict(row))
+
+
+def _text_document_row(doc_id):
+    """Строка документа, если его можно открыть текстом, иначе None."""
+    db = get_db()
+    row = db.execute("SELECT * FROM project_documents WHERE id=?", (doc_id,)).fetchone()
+    if row and document_preview_kind(row["filename"]) == "text":
+        return row
+    return None
+
+
+def _file_stamp(path):
+    """Отпечаток файла для защиты от перезаписи чужой правки."""
+    stat = os.stat(path)
+    return f"{stat.st_size}-{int(stat.st_mtime)}"
+
+
 @app.route("/api/project-documents/<int:doc_id>", methods=["PUT"])
 def rename_project_document(doc_id):
     data = request.get_json(force=True)
@@ -1163,9 +1290,25 @@ def rename_project_document(doc_id):
     new_name = safe_document_name(data.get("filename"))
     if not new_name:
         return jsonify({"error": "Имя файла обязательно"}), 400
-    # Без расширения просмотрщик не поймёт тип — подставляем исходное.
+    # Расширение менять нельзя: содержимое файла от переименования не
+    # меняется, а подпись и просмотрщик смотрят именно на него. Назвать
+    # картинку «смета.txt» — значит соврать о типе. Присланное чужое
+    # расширение отбрасываем, исходное возвращаем всегда: иначе документ
+    # мог бы остаться без расширения вообще и стал бы неоткрываемым.
+    base, ext = os.path.splitext(new_name)
+    original_ext = os.path.splitext(row["filename"])[1]
+    if ext and ext.lower() != original_ext.lower():
+        new_name = base or new_name
     if not os.path.splitext(new_name)[1]:
-        new_name += os.path.splitext(row["filename"])[1]
+        new_name += original_ext
+    # Два файла с одинаковым именем в списке выглядят как ошибка, а на диске
+    # лежат под случайными именами и молча перетирают друг друга при выгрузке.
+    taken = db.execute(
+        "SELECT 1 FROM project_documents WHERE board_id=? AND filename=? AND id<>?",
+        (row["board_id"], new_name, doc_id),
+    ).fetchone()
+    if taken:
+        return jsonify({"error": "Документ с таким именем уже есть"}), 409
 
     db.execute(
         "UPDATE project_documents SET filename=?, updated_at=? WHERE id=?",

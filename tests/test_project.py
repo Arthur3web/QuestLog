@@ -238,12 +238,47 @@ def test_document_rename_keeps_extension_and_marks_update(client, board):
     assert quote("итог.txt") in download.headers["Content-Disposition"]
 
 
+def test_document_rename_cannot_change_type(client, board):
+    """Переименование не должно менять тип: файл-то тот же самый."""
+    board_id, _ = board
+    doc = upload_doc(client, board_id, "схема.png").get_json()
+
+    # Даже если API-вызов просит другое расширение, остаётся исходное.
+    res = client.put(f"/api/project-documents/{doc['id']}", json={"filename": "смета.txt"})
+    assert res.get_json()["filename"] == "смета.png"
+    assert res.get_json()["preview"] == "image"
+
+    # Расширение всегда возвращается: документ без него стал бы неоткрываемым.
+    res = client.put(f"/api/project-documents/{doc['id']}", json={"filename": "схема.2"})
+    assert res.get_json()["filename"] == "схема.png"
+    assert res.get_json()["preview"] == "image"
+
+
 def test_document_rename_strips_path(client, board):
     """Имя с путём не должно никуда увести — ни файл, ни архив."""
     board_id, _ = board
     doc = upload_doc(client, board_id, "заметка.txt").get_json()
     res = client.put(f"/api/project-documents/{doc['id']}", json={"filename": "../../секрет.txt"})
     assert res.get_json()["filename"] == "секрет.txt"
+
+
+def test_document_rename_rejects_taken_name(client, board):
+    """Два одинаковых имени в списке читаются как ошибка, а на диске лежат
+    два разных файла — переименование должно отказывать."""
+    board_id, _ = board
+    first = upload_doc(client, board_id, "список.txt").get_json()
+    upload_doc(client, board_id, "площадки.txt")
+
+    res = client.put(f"/api/project-documents/{first['id']}", json={"filename": "площадки"})
+    assert res.status_code == 409
+    # Имя осталось прежним — неудачная попытка ничего не меняет.
+    current = client.get(f"/api/boards/{board_id}/project").get_json()["documents"]
+    names = sorted(d["filename"] for d in current)
+    assert names == ["площадки.txt", "список.txt"]
+
+    # То же имя у себя — не конфликт: переименование вхолостую проходит.
+    same = client.put(f"/api/project-documents/{first['id']}", json={"filename": "список"})
+    assert same.status_code == 200
 
 
 def test_document_deleted_from_disk_and_list(client, board):
@@ -926,3 +961,105 @@ def test_plain_task_list_marks_missing_assignee(client, board):
     with zipfile.ZipFile(io.BytesIO(client.get(f"/api/boards/{board_id}/dossier").data)) as archive:
         text = archive.read("задачи.txt").decode("utf-8")
     assert "без исполнителя" in text
+
+
+# ------------------------------------------------------------
+# Создание и правка текстовых документов
+# ------------------------------------------------------------
+def create_text_doc(client, board_id, filename="протокол.md", text=""):
+    return client.post(
+        f"/api/boards/{board_id}/documents/text",
+        json={"filename": filename, "text": text},
+    )
+
+
+def test_create_text_document_writes_real_file(client, board):
+    board_id, _ = board
+    res = create_text_doc(client, board_id, "протокол.md", "Площадки согласованы.\n")
+    assert res.status_code == 201
+    doc = res.get_json()
+    assert doc["filename"] == "протокол.md"
+    assert doc["preview"] == "text"
+
+    # На диске лежит настоящий файл в папке доски, а не запись в базе.
+    stored = list(Path(server.DOC_DIR).glob(f"{board_id}/*"))
+    assert len(stored) == 1
+    assert stored[0].read_text(encoding="utf-8") == "Площадки согласованы.\n"
+    assert stored[0].name == Path(doc["filename"]).name or stored[0].suffix == ".md"
+
+
+def test_create_text_document_gets_markdown_extension(client, board):
+    """Без расширения просмотрщик не поймёт тип — подставляем .md."""
+    board_id, _ = board
+    res = create_text_doc(client, board_id, "заметка")
+    assert res.get_json()["filename"] == "заметка.md"
+
+
+def test_create_text_document_rejects_binary_and_duplicates(client, board):
+    board_id, _ = board
+    # Формат в задаче не спрашивается: не текстовое расширение заменяется,
+    # а не отвергается всё имя.
+    assert create_text_doc(client, board_id, "схема.png").get_json()["filename"] == "схема.md"
+    assert create_text_doc(client, board_id, "  ").status_code == 400
+
+    assert create_text_doc(client, board_id, "протокол.md").status_code == 201
+    assert create_text_doc(client, board_id, "протокол.md").status_code == 409
+
+
+def test_read_and_write_document_content(client, board):
+    board_id, _ = board
+    doc = create_text_doc(client, board_id, "заметка.md", "черновик").get_json()
+
+    content = client.get(f"/api/project-documents/{doc['id']}/content").get_json()
+    assert content["text"] == "черновик"
+    assert content["stamp"]
+
+    res = client.put(
+        f"/api/project-documents/{doc['id']}/content",
+        json={"text": "готово", "stamp": content["stamp"]},
+    )
+    assert res.status_code == 200
+    assert res.get_json()["size_bytes"] > 0
+
+    again = client.get(f"/api/project-documents/{doc['id']}/content").get_json()
+    assert again["text"] == "готово"
+
+
+def test_write_document_rejects_stale_stamp(client, board):
+    """Файл поменяли мимо приложения — затирать чужую правку нельзя."""
+    board_id, _ = board
+    doc = create_text_doc(client, board_id, "заметка.md", "черновик").get_json()
+    stale = client.get(f"/api/project-documents/{doc['id']}/content").get_json()["stamp"]
+
+    # Правка мимо приложения: время и размер файла меняются.
+    import time
+    time.sleep(1.1)
+    path = Path(server.DOC_DIR) / str(board_id)
+    stored = next(path.iterdir())
+    stored.write_text("правка снаружи", encoding="utf-8")
+
+    res = client.put(
+        f"/api/project-documents/{doc['id']}/content",
+        json={"text": "из приложения", "stamp": stale},
+    )
+    assert res.status_code == 409
+    assert stored.read_text(encoding="utf-8") == "правка снаружи", "файл перезаписан"
+
+
+def test_content_endpoints_refuse_non_text(client, board):
+    board_id, _ = board
+    doc = upload_doc(client, board_id, "схема.png", b"\x89PNG").get_json()
+    assert client.get(f"/api/project-documents/{doc['id']}/content").status_code == 404
+    assert client.put(
+        f"/api/project-documents/{doc['id']}/content", json={"text": "x"}
+    ).status_code == 404
+
+
+def test_editing_document_writes_event(client, board):
+    board_id, _ = board
+    doc = create_text_doc(client, board_id, "заметка.md", "черновик").get_json()
+    stamp = client.get(f"/api/project-documents/{doc['id']}/content").get_json()["stamp"]
+    client.put(f"/api/project-documents/{doc['id']}/content", json={"text": "готово", "stamp": stamp})
+    kinds = [e["kind"] for e in events_of(client, board_id)]
+    assert "doc_added" in kinds
+    assert "doc_edited" in kinds

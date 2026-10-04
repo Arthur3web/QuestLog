@@ -235,8 +235,19 @@
              role="tabpanel" aria-labelledby="project-tab-docs" tabindex="0">
       <div class="project-pane-head">
         <h4>Документы</h4>
-        <button id="docs-download-all" class="btn-secondary" type="button" title="Скачать досье проекта: отчёт, обновления, события и документы">Отдать досье</button>
+        <div class="pane-head-actions">
+          <button id="docs-new-open" class="btn-secondary" type="button">+ создать</button>
+          <button id="docs-download-all" class="btn-secondary" type="button" title="Скачать досье проекта: отчёт, обновления, события и документы">Отдать досье</button>
+        </div>
       </div>
+      <form id="docs-new-form" class="docs-new-form" hidden>
+        <input id="docs-new-name" type="text" maxlength="120" placeholder="Название" title="Например: протокол" autocomplete="off">
+        <div class="docs-new-actions">
+          <button type="button" id="docs-new-cancel" class="btn-secondary">Отмена</button>
+          <button type="submit" id="docs-new-submit" class="btn-primary">Создать</button>
+        </div>
+        <p class="hint-text docs-new-hint">Формат подставится сам — это .md, обычный текстовый файл в папке проекта.</p>
+      </form>
       <label class="upload-btn project-upload">
         + загрузить файл
         <input id="docs-file-input" type="file" multiple hidden>
@@ -485,10 +496,16 @@
     <button class="lightbox-close" id="lightbox-close" title="Закрыть"><span data-icon="close"></span></button>
     <div class="lightbox-head">
       <span id="lightbox-name" class="lightbox-name"></span>
+      <div id="lightbox-edit-actions" class="lightbox-edit-actions" hidden>
+        <button id="lightbox-cancel-edit" class="btn-secondary" type="button">Отмена</button>
+        <button id="lightbox-save" class="btn-primary" type="button">Сохранить</button>
+      </div>
+      <button id="lightbox-edit" class="btn-secondary" type="button" hidden><span data-icon="edit"></span> Править</button>
     </div>
     <img id="lightbox-image" src="" alt="Превью" hidden>
     <iframe id="lightbox-frame" class="lightbox-frame" title="Просмотр документа" hidden></iframe>
     <pre id="lightbox-text" class="lightbox-text" hidden></pre>
+    <textarea id="lightbox-editor" class="lightbox-editor" spellcheck="false" hidden></textarea>
   </div>
 </div>
 
