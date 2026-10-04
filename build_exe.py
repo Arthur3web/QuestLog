@@ -16,6 +16,8 @@
 
 Что попадает внутрь:
     static/    — интерфейс и стили (server.py ищет их через resource_path)
+    VERSION    — номер версии (без него подпись в подвале и проверка
+                 обновлений внутри .exe останутся пустыми)
     server.py, desktop.py — сама логика
 
 Что НЕ попадает (и не надо): пользовательские данные лежат в ~/.questlog
@@ -69,6 +71,9 @@ def main():
         "--windowed",
         "--name", APP_NAME,
         "--add-data", f"{os.path.join(ROOT, 'static')}{os.pathsep}static",
+        # Номер версии читается из файла — без него в подвале сборки
+        # будет пусто и обновления не сравнятся с релизом на GitHub.
+        "--add-data", f"{os.path.join(ROOT, 'VERSION')}{os.pathsep}.",
         "--hidden-import", "waitress",
         "--collect-submodules", "waitress",
         ENTRY,
