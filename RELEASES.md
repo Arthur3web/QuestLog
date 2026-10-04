@@ -188,7 +188,9 @@ tag v1.0.1 → push origin v1.0.1 → дождаться workflow «Релиз»
 |---|---|
 | `release.py` | весь выпуск по одному запуску; без токена доводит до тега, дальше релиз публикует CI |
 | `scripts/release_notes.py` | текст релиза: версия, ссылка на файл, размер, SHA-256 |
+| `scripts/verify_build.py` | читает готовый `.exe` как архив: версия внутри совпадает с `VERSION`, статика свежая |
 | `scripts/check_release_tag.py` | падает, если тег и `VERSION` расходятся |
+| `scripts/console_out.py` | UTF-8 в вывод скриптов, иначе русский текст роняет их на Windows |
 | `scripts/setup_ruleset.py` | запрет force push в `master` + обязательные проверки |
 | `build_exe.py` | сама сборка `.exe` |
 | `check_js.py` | синтаксис всех JS-модулей |
