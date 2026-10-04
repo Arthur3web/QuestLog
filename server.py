@@ -18,8 +18,11 @@ import io
 import os
 import re
 import sqlite3
+import time
+import urllib.request
 import uuid
 import html
+import json
 import zipfile
 import mimetypes
 import datetime
@@ -49,6 +52,87 @@ def resource_path(*parts):
 
 
 STATIC_DIR = resource_path("static")
+
+
+def app_version():
+    """Номер версии из файла VERSION.
+
+    Нужен для двух вещей: показать в подвале, какая сборка запущена, и
+    позже — сравнивать её с последней выпущенной. Файл читается через
+    resource_path, иначе в сборке PyInstaller он остался бы запечатанным
+    внутрь и не нашёлся.
+    """
+    try:
+        with open(resource_path("VERSION"), encoding="utf-8") as fh:
+            return fh.read().strip() or "0.0.0"
+    except OSError:
+        return "0.0.0"
+
+
+APP_VERSION = app_version()
+
+# Откуда берём обновления: пустая строка отключает проверку совсем.
+# Переопределяется переменной окружения: пригодится и для форков, и для
+# проверки самой проверки на репозитории с настоящими релизами.
+UPDATE_REPO = os.environ.get("QUESTLOG_UPDATE_REPO", "Arthur3web/QuestLog")
+# Проверять чаще смысла нет: публичный API GitHub без ключа отдаёт
+# 60 запросов в час с одного адреса, а каждый запуск программы должен
+# съедать из этого счётчика поменьше.
+UPDATE_CACHE_TTL = 6 * 60 * 60
+
+# Почему в прошлый раз не нашлось релиза. В интерфейс это не попадает:
+# человеку незачем знать про лимиты GitHub, но при разборе «почему не
+# предложило обновление» причина обязана быть видна.
+LAST_UPDATE_ERROR = ""
+
+
+def version_tuple(stamp):
+    """"1.10.2" -> (1, 10, 2). Неразобранное считаем нулём."""
+    parts = []
+    for chunk in str(stamp).strip().lstrip("vV").split("."):
+        digits = "".join(ch for ch in chunk if ch.isdigit())
+        parts.append(int(digits) if digits else 0)
+    return tuple((parts + [0, 0, 0])[:3])
+
+
+def fetch_latest_release(timeout=5):
+    """Последний выпуск на GitHub: {"version", "url"}. None — если сети нет.
+
+    Приложение работает локально, поэтому отсутствие сети — обычное дело
+    (авиарежим, чужой компьютер), а не ошибка: вызывающий молча останется
+    на текущей версии. Чужой репозиторий или приватный даёт 404, и это
+    стоит различать, поэтому причина пишется в LAST_UPDATE_ERROR.
+
+    Видят только публичные релизы: без ключа API приватный репозиторий
+    выглядит как несуществующий.
+    """
+    global LAST_UPDATE_ERROR
+    LAST_UPDATE_ERROR = ""
+    if not UPDATE_REPO:
+        LAST_UPDATE_ERROR = "проверка обновлений выключена"
+        return None
+    url = f"https://api.github.com/repos/{UPDATE_REPO}/releases/latest"
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "QuestLog",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except Exception as exc:
+        LAST_UPDATE_ERROR = f"{type(exc).__name__}: {exc}"
+        return None
+    tag = str(data.get("tag_name") or "").strip()
+    if not tag:
+        LAST_UPDATE_ERROR = "в ответе нет tag_name"
+        return None
+    return {"version": tag.lstrip("vV"), "url": data.get("html_url") or ""}
+
+
+_update_cache = {"at": 0.0, "payload": None}
 
 
 def _static_css():
@@ -528,7 +612,34 @@ def unique_archive_name(name, taken):
 @app.route("/api/health")
 def health():
     """Lightweight marker used by desktop.py to detect a running instance."""
-    return jsonify({"ok": True, "app": "QuestLog"})
+    return jsonify({"ok": True, "app": "QuestLog", "version": APP_VERSION})
+
+
+@app.route("/api/update")
+def check_update():
+    """"Есть ли новее меня" — для тихой подсказки в подвале.
+
+    Ответ кэшируется на UPDATE_CACHE_TTL: программа запускается часто,
+    а сеть и лимит GitHub — не наши. Ничего не скачиваем и не меняем:
+    при новой версии в интерфейсе появляется ссылка на релиз.
+    """
+    now = time.time()
+    cached = _update_cache["payload"]
+    if cached is not None and now - _update_cache["at"] < UPDATE_CACHE_TTL:
+        return jsonify(cached)
+
+    payload = {"current": APP_VERSION, "available": False}
+    latest = fetch_latest_release()
+    if latest:
+        payload["latest"] = latest["version"]
+        payload["available"] = version_tuple(latest["version"]) > version_tuple(APP_VERSION)
+        if payload["available"]:
+            payload["url"] = latest["url"]
+    elif LAST_UPDATE_ERROR:
+        payload["error"] = LAST_UPDATE_ERROR
+    _update_cache["at"] = now
+    _update_cache["payload"] = payload
+    return jsonify(payload)
 
 
 @app.route("/")

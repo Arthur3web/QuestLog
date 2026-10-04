@@ -133,12 +133,41 @@ function bindGlobalEvents() {
   bindCommandPalette();
   // Просмотрщик файлов общий для вложений задачи и документов проекта.
   bindFileLightbox();
+  showAppVersion();
 
   // Тематический выбор даты вместо нативного календаря браузера.
   bindDatePickers();
   attachDatePicker(byId("tm-due"));
   attachDatePicker(byId("cm-due"));
   attachDatePicker(byId("update-date"));
+}
+
+// Номер сборки в подвале и тихая проверка обновления. Номер нужен, чтобы
+// по разговору «у меня не так» было видно, какая версия запущена: у .exe
+// и запуска из исходников статика разная. Проверка — один запрос на
+// сервер, ответ он кэширует на несколько часов; без сети приложение
+// работает как обычно, просто без подсказки.
+function showAppVersion() {
+  const slot = byId("app-version");
+  if (!slot) return;
+  API.get("/api/health")
+    .then((info) => {
+      if (!info || !info.version) return;
+      slot.textContent = " " + info.version;
+      return API.get("/api/update");
+    })
+    .then((update) => {
+      if (!update || !update.available || !update.url) return;
+      const link = document.createElement("a");
+      link.className = "footer-update";
+      link.href = update.url;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.title = "Открыть страницу релиза";
+      link.textContent = "→ " + update.latest;
+      slot.appendChild(link);
+    })
+    .catch(() => { /* версия не обязана мешать работе */ });
 }
 
 // ------------------------------------------------------------

@@ -1063,3 +1063,64 @@ def test_editing_document_writes_event(client, board):
     kinds = [e["kind"] for e in events_of(client, board_id)]
     assert "doc_added" in kinds
     assert "doc_edited" in kinds
+
+
+# -------
+# Версия сборки
+# -------
+def test_health_reports_version(client):
+    """/api/health отдаёт номер версии: по нему видно, какая сборка запущена."""
+    info = client.get("/api/health").get_json()
+    assert info["ok"] is True
+    assert info["version"].count(".") == 2  # MAJOR.MINOR.PATCH
+
+
+def test_version_file_matches_app_version():
+    """Файл VERSION — единственный источник номера: он же попадает в сборку."""
+    stamp = (Path(server.__file__).parent / "VERSION").read_text(encoding="utf-8").strip()
+    assert stamp == server.APP_VERSION
+
+
+# -------
+# Проверка обновлений
+# -------
+def test_version_tuple_orders_numbers_not_strings():
+    """Сравнение версий числовое: 1.10.0 новее, чем 1.9.0."""
+    assert server.version_tuple("1.10.0") > server.version_tuple("1.9.0")
+    assert server.version_tuple("v1.0.1") == (1, 0, 1)
+    assert server.version_tuple("1.0") == (1, 0, 0)
+    assert server.version_tuple("") == (0, 0, 0)
+
+
+def test_update_endpoint_offers_newer_release(client, monkeypatch):
+    calls = []
+
+    def fake_release(timeout=5):
+        calls.append(timeout)
+        return {"version": "9.9.9", "url": "https://example.test/releases/9.9.9"}
+
+    monkeypatch.setattr(server, "fetch_latest_release", fake_release)
+    server._update_cache.update({"at": 0.0, "payload": None})
+
+    payload = client.get("/api/update").get_json()
+    assert payload["current"] == server.APP_VERSION
+    assert payload["available"] is True
+    assert payload["latest"] == "9.9.9"
+    assert payload["url"].endswith("9.9.9")
+
+    # Второй запрос отдаётся из кэша и в сеть не ходит.
+    assert client.get("/api/update").get_json() == payload
+    assert len(calls) == 1
+
+
+def test_update_endpoint_stays_quiet_on_equal_or_offline(client, monkeypatch):
+    """Релиза нет или он не новее — просто тишина, без ошибки."""
+    monkeypatch.setattr(server, "fetch_latest_release", lambda timeout=5: {"version": "0.0.1", "url": ""})
+    server._update_cache.update({"at": 0.0, "payload": None})
+    assert client.get("/api/update").get_json()["available"] is False
+
+    monkeypatch.setattr(server, "fetch_latest_release", lambda timeout=5: None)
+    server._update_cache.update({"at": 0.0, "payload": None})
+    offline = client.get("/api/update").get_json()
+    assert offline["available"] is False
+    assert offline["current"] == server.APP_VERSION

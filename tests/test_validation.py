@@ -407,7 +407,10 @@ def test_user_validations_and_delete_nulls_assignee(client, board):
 # Инфраструктурные маршруты
 # ------------------------------------------------------------
 def test_health_index_and_static(client):
-    assert client.get("/api/health").get_json() == {"ok": True, "app": "QuestLog"}
+    health = client.get("/api/health").get_json()
+    assert health["ok"] is True
+    assert health["app"] == "QuestLog"
+    assert health["version"], "в health должен быть номер сборки"
     assert client.get("/").status_code == 200
     assert client.get("/static/js/ui/main.js").status_code == 200
 

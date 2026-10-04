@@ -294,6 +294,22 @@ body {
   text-transform: uppercase;
   color: var(--text-faint);
 }
+/* Номер сборки — тише названия: он нужен, чтобы сверить версии, а не
+   чтобы привлекать внимание. */
+.footer-version {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+/* Подсказка о новой версии — настолько же тихая: заметна тем, кто ищет,
+   и не мешает тем, кто работает. */
+.footer-update {
+  margin-left: 6px;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dashed currentColor;
+}
+.footer-update:hover { color: var(--accent-hover); }
 
 .footer-right {
   display: flex;
